@@ -5,6 +5,7 @@ using Application.Features.Cities;
 using Application.Features.Countries;
 using Application.Features.Departments;
 using Application.Features.DocumentTypes;
+using Application.Features.EmailDomains;
 using Application.Features.Genders;
 using Application.Features.InvoiceStatuses;
 using Application.Features.MechanicSpecialties;
@@ -13,7 +14,10 @@ using Application.Features.PartBrands;
 using Application.Features.PartCategories;
 using Application.Features.PaymentStatuses;
 using Application.Features.PaymentMethods;
+using Application.Features.PersonEmails;
+using Application.Features.PersonPhones;
 using Application.Features.Persons;
+using Application.Features.PersonRoles;
 using Application.Features.Roles;
 using Application.Features.ServiceTypes;
 using Application.Features.StreetTypes;
@@ -50,6 +54,10 @@ public static class DependencyInjection
         services.AddScoped<INeighborhoodService, NeighborhoodService>();
         services.AddScoped<IAddressService, AddressService>();
         services.AddScoped<IPersonService, PersonService>();
+        services.AddScoped<IEmailDomainService, EmailDomainService>();
+        services.AddScoped<IPersonEmailService, PersonEmailService>();
+        services.AddScoped<IPersonPhoneService, PersonPhoneService>();
+        services.AddScoped<IPersonRoleService, PersonRoleService>();
 
         return services;
     }
