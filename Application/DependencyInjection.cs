@@ -1,4 +1,5 @@
 using Application.Features.DocumentTypes;
+using Application.Features.Genders;
 using Application.Features.Roles;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +11,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IDocumentTypeService, DocumentTypeService>();
+        services.AddScoped<IGenderService, GenderService>();
 
         return services;
     }
