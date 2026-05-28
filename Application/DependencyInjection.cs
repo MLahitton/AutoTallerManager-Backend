@@ -1,5 +1,8 @@
 using Application.Features.AuditActionTypes;
 using Application.Features.CardTypes;
+using Application.Features.Cities;
+using Application.Features.Countries;
+using Application.Features.Departments;
 using Application.Features.DocumentTypes;
 using Application.Features.Genders;
 using Application.Features.InvoiceStatuses;
@@ -38,6 +41,9 @@ public static class DependencyInjection
         services.AddScoped<IPartCategoryService, PartCategoryService>();
         services.AddScoped<IPartBrandService, PartBrandService>();
         services.AddScoped<IVehicleBrandService, VehicleBrandService>();
+        services.AddScoped<ICountryService, CountryService>();
+        services.AddScoped<IDepartmentService, DepartmentService>();
+        services.AddScoped<ICityService, CityService>();
 
         return services;
     }
