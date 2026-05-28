@@ -1,3 +1,4 @@
+using Application.Common.Security;
 using Application.Features.AuditActionTypes;
 using Application.Features.Addresses;
 using Application.Features.CardTypes;
@@ -24,6 +25,7 @@ using Application.Features.StreetTypes;
 using Application.Features.Neighborhoods;
 using Application.Features.VehicleBrands;
 using Application.Features.VehicleTypes;
+using Application.Features.Users;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Application;
@@ -32,6 +34,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
+
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IDocumentTypeService, DocumentTypeService>();
         services.AddScoped<IGenderService, GenderService>();
@@ -58,6 +62,7 @@ public static class DependencyInjection
         services.AddScoped<IPersonEmailService, PersonEmailService>();
         services.AddScoped<IPersonPhoneService, PersonPhoneService>();
         services.AddScoped<IPersonRoleService, PersonRoleService>();
+        services.AddScoped<IUserService, UserService>();
 
         return services;
     }
