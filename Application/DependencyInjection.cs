@@ -13,6 +13,7 @@ using Application.Features.PartBrands;
 using Application.Features.PartCategories;
 using Application.Features.PaymentStatuses;
 using Application.Features.PaymentMethods;
+using Application.Features.Persons;
 using Application.Features.Roles;
 using Application.Features.ServiceTypes;
 using Application.Features.StreetTypes;
@@ -48,6 +49,7 @@ public static class DependencyInjection
         services.AddScoped<ICityService, CityService>();
         services.AddScoped<INeighborhoodService, NeighborhoodService>();
         services.AddScoped<IAddressService, AddressService>();
+        services.AddScoped<IPersonService, PersonService>();
 
         return services;
     }
