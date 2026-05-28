@@ -3,11 +3,16 @@ using Application.Features.CardTypes;
 using Application.Features.DocumentTypes;
 using Application.Features.Genders;
 using Application.Features.InvoiceStatuses;
+using Application.Features.MechanicSpecialties;
 using Application.Features.OrderStatuses;
+using Application.Features.PartBrands;
+using Application.Features.PartCategories;
 using Application.Features.PaymentStatuses;
 using Application.Features.PaymentMethods;
 using Application.Features.Roles;
+using Application.Features.ServiceTypes;
 using Application.Features.StreetTypes;
+using Application.Features.VehicleBrands;
 using Application.Features.VehicleTypes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,6 +33,11 @@ public static class DependencyInjection
         services.AddScoped<IOrderStatusService, OrderStatusService>();
         services.AddScoped<ICardTypeService, CardTypeService>();
         services.AddScoped<IAuditActionTypeService, AuditActionTypeService>();
+        services.AddScoped<IMechanicSpecialtyService, MechanicSpecialtyService>();
+        services.AddScoped<IServiceTypeService, ServiceTypeService>();
+        services.AddScoped<IPartCategoryService, PartCategoryService>();
+        services.AddScoped<IPartBrandService, PartBrandService>();
+        services.AddScoped<IVehicleBrandService, VehicleBrandService>();
 
         return services;
     }
