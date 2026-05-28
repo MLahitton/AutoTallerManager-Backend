@@ -1,3 +1,4 @@
+using Application.Features.DocumentTypes;
 using Application.Features.Roles;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,6 +9,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<IDocumentTypeService, DocumentTypeService>();
 
         return services;
     }
