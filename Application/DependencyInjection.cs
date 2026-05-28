@@ -1,4 +1,5 @@
 using Application.Features.AuditActionTypes;
+using Application.Features.Addresses;
 using Application.Features.CardTypes;
 using Application.Features.Cities;
 using Application.Features.Countries;
@@ -15,6 +16,7 @@ using Application.Features.PaymentMethods;
 using Application.Features.Roles;
 using Application.Features.ServiceTypes;
 using Application.Features.StreetTypes;
+using Application.Features.Neighborhoods;
 using Application.Features.VehicleBrands;
 using Application.Features.VehicleTypes;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +46,8 @@ public static class DependencyInjection
         services.AddScoped<ICountryService, CountryService>();
         services.AddScoped<IDepartmentService, DepartmentService>();
         services.AddScoped<ICityService, CityService>();
+        services.AddScoped<INeighborhoodService, NeighborhoodService>();
+        services.AddScoped<IAddressService, AddressService>();
 
         return services;
     }
