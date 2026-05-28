@@ -1,5 +1,10 @@
+using Application.Features.AuditActionTypes;
+using Application.Features.CardTypes;
 using Application.Features.DocumentTypes;
 using Application.Features.Genders;
+using Application.Features.InvoiceStatuses;
+using Application.Features.OrderStatuses;
+using Application.Features.PaymentStatuses;
 using Application.Features.PaymentMethods;
 using Application.Features.Roles;
 using Application.Features.StreetTypes;
@@ -18,6 +23,11 @@ public static class DependencyInjection
         services.AddScoped<IStreetTypeService, StreetTypeService>();
         services.AddScoped<IVehicleTypeService, VehicleTypeService>();
         services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+        services.AddScoped<IPaymentStatusService, PaymentStatusService>();
+        services.AddScoped<IInvoiceStatusService, InvoiceStatusService>();
+        services.AddScoped<IOrderStatusService, OrderStatusService>();
+        services.AddScoped<ICardTypeService, CardTypeService>();
+        services.AddScoped<IAuditActionTypeService, AuditActionTypeService>();
 
         return services;
     }
