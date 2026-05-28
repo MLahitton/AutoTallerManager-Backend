@@ -1,0 +1,558 @@
+-- ============================================================
+-- AUTOTALLERMANAGER - MySQL
+-- Version final fusionada (español + inglés)
+-- Normalizada hasta 4FN
+-- Tablas en inglés, lógica de negocio completa
+-- ============================================================
+
+DROP DATABASE IF EXISTS AutoTallerManager;
+CREATE DATABASE AutoTallerManager CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE AutoTallerManager;
+
+-- ============================================================
+-- LOCATION
+-- ============================================================
+
+CREATE TABLE Countries (
+    CountryId   INT AUTO_INCREMENT PRIMARY KEY,
+    Name        VARCHAR(100) NOT NULL UNIQUE,
+    PhoneCode   VARCHAR(10)
+);
+
+CREATE TABLE Departments (
+    DepartmentId INT AUTO_INCREMENT PRIMARY KEY,
+    CountryId    INT          NOT NULL,
+    Name         VARCHAR(100) NOT NULL,
+    UNIQUE (CountryId, Name),
+    FOREIGN KEY (CountryId) REFERENCES Countries(CountryId)
+);
+
+CREATE TABLE Cities (
+    CityId       INT AUTO_INCREMENT PRIMARY KEY,
+    DepartmentId INT          NOT NULL,
+    Name         VARCHAR(100) NOT NULL,
+    UNIQUE (DepartmentId, Name),
+    FOREIGN KEY (DepartmentId) REFERENCES Departments(DepartmentId)
+);
+
+CREATE TABLE Neighborhoods (
+    NeighborhoodId INT AUTO_INCREMENT PRIMARY KEY,
+    CityId         INT          NOT NULL,
+    Name           VARCHAR(100) NOT NULL,
+    FOREIGN KEY (CityId) REFERENCES Cities(CityId)
+);
+
+CREATE TABLE StreetTypes (
+    StreetTypeId INT AUTO_INCREMENT PRIMARY KEY,
+    Name         VARCHAR(50)  NOT NULL UNIQUE
+);
+
+CREATE TABLE Addresses (
+    AddressId       INT AUTO_INCREMENT PRIMARY KEY,
+    NeighborhoodId  INT          NOT NULL,
+    StreetTypeId    INT          NOT NULL,
+    MainNumber      VARCHAR(10),
+    SecondaryNumber VARCHAR(10),
+    TertiaryNumber  VARCHAR(10),
+    Complement      VARCHAR(150),
+    FOREIGN KEY (NeighborhoodId) REFERENCES Neighborhoods(NeighborhoodId),
+    FOREIGN KEY (StreetTypeId)   REFERENCES StreetTypes(StreetTypeId)
+);
+
+-- ============================================================
+-- PERSONS
+-- ============================================================
+
+CREATE TABLE DocumentTypes (
+    DocumentTypeId INT AUTO_INCREMENT PRIMARY KEY,
+    Code           VARCHAR(10)  NOT NULL UNIQUE,
+    Name           VARCHAR(80)  NOT NULL UNIQUE
+);
+
+CREATE TABLE Genders (
+    GenderId INT AUTO_INCREMENT PRIMARY KEY,
+    Name     VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE Persons (
+    PersonId         INT AUTO_INCREMENT PRIMARY KEY,
+    DocumentTypeId   INT          NOT NULL,
+    DocumentNumber   VARCHAR(30)  NOT NULL UNIQUE,
+    FirstName        VARCHAR(50)  NOT NULL,
+    MiddleName       VARCHAR(50),
+    LastName         VARCHAR(50)  NOT NULL,
+    SecondLastName   VARCHAR(50),
+    BirthDate        DATE,
+    GenderId         INT,
+    AddressId        INT,
+    CreatedAt        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (DocumentTypeId) REFERENCES DocumentTypes(DocumentTypeId),
+    FOREIGN KEY (GenderId)       REFERENCES Genders(GenderId),
+    FOREIGN KEY (AddressId)      REFERENCES Addresses(AddressId)
+);
+
+-- Multiple emails per person, normalized domain
+CREATE TABLE EmailDomains (
+    EmailDomainId INT AUTO_INCREMENT PRIMARY KEY,
+    Domain        VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE PersonEmails (
+    PersonEmailId INT AUTO_INCREMENT PRIMARY KEY,
+    PersonId      INT          NOT NULL,
+    EmailDomainId INT          NOT NULL,
+    EmailUser     VARCHAR(100) NOT NULL,
+    IsPrimary     TINYINT(1)   NOT NULL DEFAULT 0,
+    UNIQUE (EmailUser, EmailDomainId),
+    FOREIGN KEY (PersonId)      REFERENCES Persons(PersonId),
+    FOREIGN KEY (EmailDomainId) REFERENCES EmailDomains(EmailDomainId)
+);
+
+-- Multiple phones per person
+CREATE TABLE PersonPhones (
+    PersonPhoneId INT AUTO_INCREMENT PRIMARY KEY,
+    PersonId      INT          NOT NULL,
+    CountryId     INT          NOT NULL,
+    PhoneNumber   VARCHAR(20)  NOT NULL,
+    IsPrimary     TINYINT(1)   NOT NULL DEFAULT 0,
+    UNIQUE (CountryId, PhoneNumber),
+    FOREIGN KEY (PersonId)  REFERENCES Persons(PersonId),
+    FOREIGN KEY (CountryId) REFERENCES Countries(CountryId)
+);
+
+-- ============================================================
+-- ROLES
+-- ============================================================
+
+CREATE TABLE Roles (
+    RoleId   INT AUTO_INCREMENT PRIMARY KEY,
+    RoleName VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE PersonRoles (
+    PersonRoleId INT AUTO_INCREMENT PRIMARY KEY,
+    PersonId     INT       NOT NULL,
+    RoleId       INT       NOT NULL,
+    IsActive     TINYINT(1) NOT NULL DEFAULT 1,
+    UNIQUE (PersonId, RoleId),
+    FOREIGN KEY (PersonId) REFERENCES Persons(PersonId),
+    FOREIGN KEY (RoleId)   REFERENCES Roles(RoleId)
+);
+
+-- ============================================================
+-- USERS (JWT credentials)
+-- ============================================================
+
+CREATE TABLE Users (
+    UserId                  INT AUTO_INCREMENT PRIMARY KEY,
+    PersonId                INT          NOT NULL UNIQUE,
+    PasswordHash            VARCHAR(255) NOT NULL,
+    RefreshToken            TEXT,
+    RefreshTokenExpiration  DATETIME,
+    IsActive                TINYINT(1)   NOT NULL DEFAULT 1,
+    CreatedAt               DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (PersonId) REFERENCES Persons(PersonId)
+);
+
+-- ============================================================
+-- MECHANIC SPECIALTIES
+-- ============================================================
+
+CREATE TABLE MechanicSpecialties (
+    SpecialtyId INT AUTO_INCREMENT PRIMARY KEY,
+    Name        VARCHAR(100) NOT NULL UNIQUE
+);
+
+-- Which specialties a mechanic (person with role Mechanic) has
+CREATE TABLE MechanicSpecialtyAssignments (
+    AssignmentId INT AUTO_INCREMENT PRIMARY KEY,
+    PersonId     INT NOT NULL,
+    SpecialtyId  INT NOT NULL,
+    UNIQUE (PersonId, SpecialtyId),
+    FOREIGN KEY (PersonId)    REFERENCES Persons(PersonId),
+    FOREIGN KEY (SpecialtyId) REFERENCES MechanicSpecialties(SpecialtyId)
+);
+
+-- ============================================================
+-- VEHICLES
+-- ============================================================
+
+CREATE TABLE VehicleTypes (
+    VehicleTypeId INT AUTO_INCREMENT PRIMARY KEY,
+    Name          VARCHAR(80)  NOT NULL UNIQUE
+);
+
+CREATE TABLE VehicleBrands (
+    BrandId   INT AUTO_INCREMENT PRIMARY KEY,
+    BrandName VARCHAR(80) NOT NULL UNIQUE
+);
+
+CREATE TABLE VehicleModels (
+    ModelId   INT AUTO_INCREMENT PRIMARY KEY,
+    BrandId   INT         NOT NULL,
+    ModelName VARCHAR(80) NOT NULL,
+    UNIQUE (BrandId, ModelName),
+    FOREIGN KEY (BrandId) REFERENCES VehicleBrands(BrandId)
+);
+
+CREATE TABLE Vehicles (
+    VehicleId     INT AUTO_INCREMENT PRIMARY KEY,
+    ModelId       INT          NOT NULL,
+    VehicleTypeId INT          NOT NULL,
+    VIN           VARCHAR(17)  NOT NULL UNIQUE,
+    Year          YEAR         NOT NULL,
+    Color         VARCHAR(30),
+    Mileage       INT          NOT NULL DEFAULT 0,
+    IsActive      TINYINT(1)   NOT NULL DEFAULT 1,
+    FOREIGN KEY (ModelId)       REFERENCES VehicleModels(ModelId),
+    FOREIGN KEY (VehicleTypeId) REFERENCES VehicleTypes(VehicleTypeId)
+);
+
+-- Tracks ownership changes over time
+CREATE TABLE VehicleOwnerHistory (
+    VehicleOwnerHistoryId INT AUTO_INCREMENT PRIMARY KEY,
+    VehicleId             INT  NOT NULL,
+    PersonId              INT  NOT NULL,
+    StartDate             DATE NOT NULL,
+    EndDate               DATE,           -- NULL = current owner
+    FOREIGN KEY (VehicleId) REFERENCES Vehicles(VehicleId),
+    FOREIGN KEY (PersonId)  REFERENCES Persons(PersonId)
+);
+
+-- ============================================================
+-- SERVICE TYPES & ORDER STATUSES
+-- ============================================================
+
+CREATE TABLE ServiceTypes (
+    ServiceTypeId INT AUTO_INCREMENT PRIMARY KEY,
+    Name          VARCHAR(100) NOT NULL UNIQUE,
+    EstimatedDays INT          NOT NULL DEFAULT 1
+);
+
+CREATE TABLE OrderStatuses (
+    OrderStatusId INT AUTO_INCREMENT PRIMARY KEY,
+    Name          VARCHAR(50)  NOT NULL UNIQUE
+);
+
+-- ============================================================
+-- SERVICE ORDERS
+-- ============================================================
+
+CREATE TABLE ServiceOrders (
+    ServiceOrderId          INT AUTO_INCREMENT PRIMARY KEY,
+    VehicleId               INT      NOT NULL,
+    OrderStatusId           INT      NOT NULL,
+    EntryDate               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    EstimatedDeliveryDate   DATETIME,
+    GeneralDescription      TEXT,
+    CancellationReason      TEXT,                   -- populated on cancel/void
+    CancellationDate        DATETIME,
+    CreatedAt               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (VehicleId)     REFERENCES Vehicles(VehicleId),
+    FOREIGN KEY (OrderStatusId) REFERENCES OrderStatuses(OrderStatusId)
+);
+
+-- Vehicle entry checklist (recorded when car enters the workshop)
+CREATE TABLE VehicleEntryInventory (
+    EntryInventoryId           INT AUTO_INCREMENT PRIMARY KEY,
+    ServiceOrderId             INT      NOT NULL UNIQUE,
+    HasScratches               TINYINT(1) NOT NULL DEFAULT 0,
+    ScratchesDescription       TEXT,
+    HasToolbox                 TINYINT(1) NOT NULL DEFAULT 0,
+    ToolboxDescription         TEXT,
+    OwnershipCardDelivered     TINYINT(1) NOT NULL DEFAULT 0,
+    Observations               TEXT,
+    RegisteredAt               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ServiceOrderId) REFERENCES ServiceOrders(ServiceOrderId)
+);
+
+-- ============================================================
+-- ORDER SERVICES (one order can have multiple service lines)
+-- ============================================================
+
+CREATE TABLE OrderServices (
+    OrderServiceId   INT AUTO_INCREMENT PRIMARY KEY,
+    ServiceOrderId   INT           NOT NULL,
+    ServiceTypeId    INT           NOT NULL,
+    Description      TEXT,
+    WorkPerformed    TEXT,
+    LaborCost        DECIMAL(10,2) NOT NULL DEFAULT 0,
+    -- Customer approval per service line
+    CustomerApproved TINYINT(1),             -- NULL = pending, 1 = approved, 0 = rejected
+    ApprovalDate     DATETIME,
+    FOREIGN KEY (ServiceOrderId) REFERENCES ServiceOrders(ServiceOrderId),
+    FOREIGN KEY (ServiceTypeId)  REFERENCES ServiceTypes(ServiceTypeId)
+);
+
+-- Mechanic assigned to a specific service line (with the specialty used)
+CREATE TABLE MechanicAssignments (
+    MechanicAssignmentId INT AUTO_INCREMENT PRIMARY KEY,
+    OrderServiceId       INT NOT NULL,
+    MechanicPersonId     INT NOT NULL,   -- person with Mechanic role
+    SpecialtyId          INT NOT NULL,   -- specialty applied to this job
+    UNIQUE (OrderServiceId, MechanicPersonId),
+    FOREIGN KEY (OrderServiceId)   REFERENCES OrderServices(OrderServiceId),
+    FOREIGN KEY (MechanicPersonId) REFERENCES Persons(PersonId),
+    FOREIGN KEY (SpecialtyId)      REFERENCES MechanicSpecialties(SpecialtyId)
+);
+
+-- ============================================================
+-- ORDER STATUS HISTORY
+-- ============================================================
+
+CREATE TABLE OrderStatusHistory (
+    OrderStatusHistoryId  INT AUTO_INCREMENT PRIMARY KEY,
+    ServiceOrderId        INT      NOT NULL,
+    PreviousOrderStatusId INT,
+    NewOrderStatusId      INT      NOT NULL,
+    ChangedByUserId       INT      NOT NULL,
+    Observation           TEXT,
+    ChangedAt             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ServiceOrderId)        REFERENCES ServiceOrders(ServiceOrderId),
+    FOREIGN KEY (PreviousOrderStatusId) REFERENCES OrderStatuses(OrderStatusId),
+    FOREIGN KEY (NewOrderStatusId)      REFERENCES OrderStatuses(OrderStatusId),
+    FOREIGN KEY (ChangedByUserId)       REFERENCES Users(UserId)
+);
+
+-- ============================================================
+-- PARTS (REPUESTOS)
+-- ============================================================
+
+CREATE TABLE PartCategories (
+    PartCategoryId INT AUTO_INCREMENT PRIMARY KEY,
+    Name           VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE PartBrands (
+    PartBrandId INT AUTO_INCREMENT PRIMARY KEY,
+    Name        VARCHAR(80) NOT NULL UNIQUE
+);
+
+CREATE TABLE Parts (
+    PartId         INT AUTO_INCREMENT PRIMARY KEY,
+    PartCategoryId INT           NOT NULL,
+    PartBrandId    INT,
+    Code           VARCHAR(50)   NOT NULL UNIQUE,
+    Description    VARCHAR(255)  NOT NULL,
+    Stock          INT           NOT NULL DEFAULT 0,
+    MinimumStock   INT           NOT NULL DEFAULT 5,
+    UnitPrice      DECIMAL(10,2) NOT NULL,
+    IsActive       TINYINT(1)    NOT NULL DEFAULT 1,
+    FOREIGN KEY (PartCategoryId) REFERENCES PartCategories(PartCategoryId),
+    FOREIGN KEY (PartBrandId)    REFERENCES PartBrands(PartBrandId)
+);
+
+-- Parts used in an order service line — customer approves each one
+CREATE TABLE OrderServiceParts (
+    OrderServicePartId INT AUTO_INCREMENT PRIMARY KEY,
+    OrderServiceId     INT           NOT NULL,
+    PartId             INT           NOT NULL,
+    Quantity           INT           NOT NULL DEFAULT 1,
+    AppliedUnitPrice   DECIMAL(10,2) NOT NULL,   -- price at time of order
+    -- Customer approval per part
+    CustomerApproved   TINYINT(1),               -- NULL = pending, 1 = approved, 0 = rejected
+    ApprovalDate       DATETIME,
+    UNIQUE (OrderServiceId, PartId),
+    FOREIGN KEY (OrderServiceId) REFERENCES OrderServices(OrderServiceId),
+    FOREIGN KEY (PartId)         REFERENCES Parts(PartId)
+);
+
+-- Supplier and purchases to keep stock history
+CREATE TABLE Suppliers (
+    SupplierId INT AUTO_INCREMENT PRIMARY KEY,
+    Name       VARCHAR(120)  NOT NULL,
+    TaxId      VARCHAR(30)   UNIQUE,
+    Phone      VARCHAR(30),
+    Email      VARCHAR(120),
+    IsActive   TINYINT(1)    NOT NULL DEFAULT 1
+);
+
+CREATE TABLE PartPurchases (
+    PartPurchaseId INT AUTO_INCREMENT PRIMARY KEY,
+    SupplierId     INT           NOT NULL,
+    PurchaseDate   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    Total          DECIMAL(10,2) NOT NULL DEFAULT 0,
+    FOREIGN KEY (SupplierId) REFERENCES Suppliers(SupplierId)
+);
+
+CREATE TABLE PartPurchaseDetails (
+    PartPurchaseDetailId INT AUTO_INCREMENT PRIMARY KEY,
+    PartPurchaseId       INT           NOT NULL,
+    PartId               INT           NOT NULL,
+    Quantity             INT           NOT NULL,
+    UnitPrice            DECIMAL(10,2) NOT NULL,
+    UNIQUE (PartPurchaseId, PartId),
+    FOREIGN KEY (PartPurchaseId) REFERENCES PartPurchases(PartPurchaseId),
+    FOREIGN KEY (PartId)         REFERENCES Parts(PartId)
+);
+
+-- ============================================================
+-- INVOICES & PAYMENTS
+-- ============================================================
+
+CREATE TABLE InvoiceStatuses (
+    InvoiceStatusId INT AUTO_INCREMENT PRIMARY KEY,
+    Name            VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE Invoices (
+    InvoiceId        INT AUTO_INCREMENT PRIMARY KEY,
+    InvoiceNumber    VARCHAR(50)   NOT NULL UNIQUE,
+    ServiceOrderId   INT           NOT NULL UNIQUE,
+    InvoiceStatusId  INT           NOT NULL,
+    InvoiceDate      DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    Subtotal         DECIMAL(10,2) NOT NULL,
+    Tax              DECIMAL(10,2) NOT NULL DEFAULT 0,
+    Total            DECIMAL(10,2) NOT NULL,
+    Observations     TEXT,
+    FOREIGN KEY (ServiceOrderId)  REFERENCES ServiceOrders(ServiceOrderId),
+    FOREIGN KEY (InvoiceStatusId) REFERENCES InvoiceStatuses(InvoiceStatusId)
+);
+
+-- Snapshot of each line item at invoice time
+CREATE TABLE InvoiceDetails (
+    InvoiceDetailId INT AUTO_INCREMENT PRIMARY KEY,
+    InvoiceId       INT           NOT NULL,
+    SourcePartId    INT,                          -- optional ref to original part
+    Concept         VARCHAR(150)  NOT NULL,
+    Quantity        INT           NOT NULL DEFAULT 1,
+    UnitPrice       DECIMAL(10,2) NOT NULL,
+    Subtotal        DECIMAL(10,2) NOT NULL,
+    LineType        VARCHAR(20)   NOT NULL,       -- 'part' or 'labor'
+    FOREIGN KEY (InvoiceId)   REFERENCES Invoices(InvoiceId),
+    FOREIGN KEY (SourcePartId) REFERENCES Parts(PartId)
+);
+
+CREATE TABLE PaymentMethods (
+    PaymentMethodId INT AUTO_INCREMENT PRIMARY KEY,
+    Name            VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE PaymentStatuses (
+    PaymentStatusId INT AUTO_INCREMENT PRIMARY KEY,
+    Name            VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE Payments (
+    PaymentId       INT AUTO_INCREMENT PRIMARY KEY,
+    InvoiceId       INT           NOT NULL,
+    PaymentMethodId INT           NOT NULL,
+    PaymentStatusId INT           NOT NULL,
+    PaymentDate     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    Amount          DECIMAL(10,2) NOT NULL,
+    Reference       VARCHAR(100),
+    FOREIGN KEY (InvoiceId)       REFERENCES Invoices(InvoiceId),
+    FOREIGN KEY (PaymentMethodId) REFERENCES PaymentMethods(PaymentMethodId),
+    FOREIGN KEY (PaymentStatusId) REFERENCES PaymentStatuses(PaymentStatusId)
+);
+
+-- Extra detail for card payments
+CREATE TABLE CardTypes (
+    CardTypeId INT AUTO_INCREMENT PRIMARY KEY,
+    Name       VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE PaymentCards (
+    PaymentCardId     INT AUTO_INCREMENT PRIMARY KEY,
+    PaymentId         INT          NOT NULL UNIQUE,
+    CardTypeId        INT          NOT NULL,
+    LastFourDigits    VARCHAR(4)   NOT NULL,
+    CardHolder        VARCHAR(100) NOT NULL,
+    AuthorizationCode VARCHAR(100),
+    FOREIGN KEY (PaymentId)   REFERENCES Payments(PaymentId),
+    FOREIGN KEY (CardTypeId)  REFERENCES CardTypes(CardTypeId)
+);
+
+-- ============================================================
+-- AUDIT
+-- ============================================================
+
+CREATE TABLE AuditActionTypes (
+    AuditActionTypeId INT AUTO_INCREMENT PRIMARY KEY,
+    Name              VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE Audits (
+    AuditId           INT AUTO_INCREMENT PRIMARY KEY,
+    UserId            INT          NOT NULL,
+    AuditActionTypeId INT          NOT NULL,
+    AffectedEntity    VARCHAR(100) NOT NULL,
+    AffectedRecordId  INT          NOT NULL,
+    Description       TEXT,
+    CreatedAt         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (UserId)            REFERENCES Users(UserId),
+    FOREIGN KEY (AuditActionTypeId) REFERENCES AuditActionTypes(AuditActionTypeId)
+);
+
+-- ============================================================
+-- SEED DATA
+-- ============================================================
+
+INSERT INTO Roles (RoleName) VALUES
+    ('Admin'), ('Client'), ('Mechanic'), ('Receptionist');
+
+INSERT INTO OrderStatuses (Name) VALUES
+    ('Pending'), ('InProgress'), ('Completed'), ('Cancelled'), ('Voided');
+
+INSERT INTO MechanicSpecialties (Name) VALUES
+    ('Engine'), ('Electrical'), ('AirConditioning'), ('Suspension'),
+    ('Brakes'), ('GeneralDiagnostics'), ('Bodywork');
+
+INSERT INTO PaymentMethods (Name) VALUES
+    ('Cash'), ('Card'), ('BankTransfer');
+
+INSERT INTO PaymentStatuses (Name) VALUES
+    ('Pending'), ('Completed'), ('Refunded'), ('Failed');
+
+INSERT INTO InvoiceStatuses (Name) VALUES
+    ('Draft'), ('Issued'), ('Paid'), ('Cancelled');
+
+INSERT INTO ServiceTypes (Name, EstimatedDays) VALUES
+    ('Preventive Maintenance', 1),
+    ('Mechanical Repair',      3),
+    ('Diagnostics',            1),
+    ('Air Conditioning',       2),
+    ('Electrical',             2),
+    ('Bodywork and Paint',     5);
+
+INSERT INTO PartCategories (Name) VALUES
+    ('Filters'), ('Oils and Lubricants'), ('Brakes'), ('Suspension'),
+    ('Electrical'), ('Air Conditioning'), ('Engine'), ('Bodywork');
+
+INSERT INTO AuditActionTypes (Name) VALUES
+    ('CREATE'), ('UPDATE'), ('DELETE'), ('CANCEL'), ('VOID'), ('LOGIN');
+
+INSERT INTO VehicleTypes (Name) VALUES
+    ('Sedan'), ('SUV'), ('Pickup'), ('Van'), ('Motorcycle'), ('Truck');
+
+INSERT INTO DocumentTypes (Code, Name) VALUES
+    ('CC',  'Cedula de Ciudadania'),
+    ('NIT', 'NIT'),
+    ('CE',  'Cedula de Extranjeria'),
+    ('PAS', 'Pasaporte');
+
+INSERT INTO Genders (Name) VALUES
+    ('Male'), ('Female'), ('Other'), ('PreferNotToSay');
+
+INSERT INTO CardTypes (Name) VALUES
+    ('Visa'), ('Mastercard'), ('AmericanExpress'), ('Debit');
+
+INSERT INTO StreetTypes (Name) VALUES
+    ('Calle'), ('Carrera'), ('Avenida'), ('Diagonal'), ('Transversal'), ('Circular');
+
+INSERT INTO Countries (Name, PhoneCode) VALUES
+    ('Colombia', '+57'),
+    ('Venezuela', '+58'),
+    ('Ecuador', '+593');
+
+INSERT INTO Departments (CountryId, Name) VALUES
+    (1, 'Santander'),
+    (1, 'Cundinamarca'),
+    (1, 'Antioquia');
+
+INSERT INTO Cities (DepartmentId, Name) VALUES
+    (1, 'Bucaramanga'),
+    (1, 'Floridablanca'),
+    (1, 'Giron'),
+    (2, 'Bogota'),
+    (3, 'Medellin');
