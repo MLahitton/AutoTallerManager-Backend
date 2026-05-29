@@ -22,7 +22,9 @@ using Application.Features.PartCategories;
 using Application.Features.PartPurchaseDetails;
 using Application.Features.PartPurchases;
 using Application.Features.Parts;
+using Application.Features.PaymentCards;
 using Application.Features.PaymentStatuses;
+using Application.Features.Payments;
 using Application.Features.PaymentMethods;
 using Application.Features.PersonEmails;
 using Application.Features.PersonPhones;
@@ -59,6 +61,8 @@ public static class DependencyInjection
         services.AddScoped<IVehicleTypeService, VehicleTypeService>();
         services.AddScoped<IPaymentMethodService, PaymentMethodService>();
         services.AddScoped<IPaymentStatusService, PaymentStatusService>();
+        services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<IPaymentCardService, PaymentCardService>();
         services.AddScoped<IInvoiceStatusService, InvoiceStatusService>();
         services.AddScoped<IInvoiceService, InvoiceService>();
         services.AddScoped<IInvoiceDetailService, InvoiceDetailService>();
