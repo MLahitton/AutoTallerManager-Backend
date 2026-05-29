@@ -2,6 +2,7 @@ using System.Text;
 using Api.Security;
 using Application;
 using Application.Common.Security;
+using Application.Features.Bootstrap;
 using Infrastructure;
 using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -106,6 +107,54 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    using var scope = app.Services.CreateScope();
+    var logger = scope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("BootstrapAdmin");
+
+    var bootstrapSettings = app.Configuration
+        .GetSection("BootstrapAdmin")
+        .Get<BootstrapAdminSettings>();
+
+    if (bootstrapSettings is null)
+    {
+        logger.LogWarning(
+            "BootstrapAdmin configuration section was not found. Skipping bootstrap admin initialization.");
+    }
+    else
+    {
+        var bootstrapService = scope.ServiceProvider.GetRequiredService<IDevelopmentAdminBootstrapService>();
+        var bootstrapResult = await bootstrapService.EnsureBootstrapAdminAsync(bootstrapSettings);
+
+        if (bootstrapResult.IsFailure)
+        {
+            logger.LogWarning(
+                "Bootstrap admin was not created. Code: {Code}. Message: {Message}",
+                bootstrapResult.Error.Code,
+                bootstrapResult.Error.Message);
+        }
+        else
+        {
+            var result = bootstrapResult.Value!;
+
+            if (result.Created)
+            {
+                logger.LogInformation(
+                    "Bootstrap admin created. UserId: {UserId}. PersonId: {PersonId}. Email: {Email}. Message: {Message}",
+                    result.UserId,
+                    result.PersonId,
+                    result.Email,
+                    result.Message);
+            }
+            else
+            {
+                logger.LogInformation(
+                    "Bootstrap admin skipped. Message: {Message}",
+                    result.Message);
+            }
+        }
+    }
 }
 
 app.UseHttpsRedirection();

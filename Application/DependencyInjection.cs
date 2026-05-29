@@ -10,6 +10,7 @@ using Application.Features.Catalogs;
 using Application.Features.Cities;
 using Application.Features.ClientVehicleFlows;
 using Application.Features.Countries;
+using Application.Features.Bootstrap;
 using Application.Features.Departments;
 using Application.Features.DocumentTypes;
 using Application.Features.Dashboards;
@@ -127,6 +128,7 @@ public static class DependencyInjection
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IStaffService, StaffService>();
+        services.AddScoped<IDevelopmentAdminBootstrapService, DevelopmentAdminBootstrapService>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IClientVehicleFlowService, ClientVehicleFlowService>();
         services.AddScoped<IDashboardService, DashboardService>();
