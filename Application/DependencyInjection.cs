@@ -21,6 +21,7 @@ using Application.Features.PersonPhones;
 using Application.Features.Persons;
 using Application.Features.PersonRoles;
 using Application.Features.Roles;
+using Application.Features.ServiceOrders;
 using Application.Features.ServiceTypes;
 using Application.Features.StreetTypes;
 using Application.Features.Neighborhoods;
@@ -54,6 +55,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditActionTypeService, AuditActionTypeService>();
         services.AddScoped<IMechanicSpecialtyService, MechanicSpecialtyService>();
         services.AddScoped<IServiceTypeService, ServiceTypeService>();
+        services.AddScoped<IServiceOrderService, ServiceOrderService>();
         services.AddScoped<IPartCategoryService, PartCategoryService>();
         services.AddScoped<IPartBrandService, PartBrandService>();
         services.AddScoped<IVehicleBrandService, VehicleBrandService>();
