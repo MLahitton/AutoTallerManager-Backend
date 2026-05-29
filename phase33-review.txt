@@ -1,0 +1,481 @@
+﻿
+==================== .\Application\DependencyInjection.cs ====================
+
+using Application.Common.Security;
+using Application.Features.Auth;
+using Application.Features.AuditActionTypes;
+using Application.Features.Audits;
+using Application.Features.Addresses;
+using Application.Features.CardTypes;
+using Application.Features.Cities;
+using Application.Features.Countries;
+using Application.Features.Departments;
+using Application.Features.DocumentTypes;
+using Application.Features.EmailDomains;
+using Application.Features.Genders;
+using Application.Features.InvoiceDetails;
+using Application.Features.Invoices;
+using Application.Features.InvoiceStatuses;
+using Application.Features.MechanicSpecialties;
+using Application.Features.MechanicAssignments;
+using Application.Features.OrderStatuses;
+using Application.Features.OrderServices;
+using Application.Features.OrderServiceParts;
+using Application.Features.PartBrands;
+using Application.Features.PartCategories;
+using Application.Features.PartPurchaseDetails;
+using Application.Features.PartPurchases;
+using Application.Features.Parts;
+using Application.Features.PaymentCards;
+using Application.Features.PaymentStatuses;
+using Application.Features.Payments;
+using Application.Features.PaymentMethods;
+using Application.Features.PersonEmails;
+using Application.Features.PersonPhones;
+using Application.Features.Persons;
+using Application.Features.PersonRoles;
+using Application.Features.Roles;
+using Application.Features.ServiceOrders;
+using Application.Features.ServiceTypes;
+using Application.Features.StreetTypes;
+using Application.Features.Suppliers;
+using Application.Features.Neighborhoods;
+using Application.Features.VehicleBrands;
+using Application.Features.VehicleEntryInventories;
+using Application.Features.VehicleModels;
+using Application.Features.VehicleOwnerHistories;
+using Application.Features.VehicleTypes;
+using Application.Features.Vehicles;
+using Application.Features.Users;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Application;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddApplication(this IServiceCollection services)
+    {
+        services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
+        services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
+
+        services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<IDocumentTypeService, DocumentTypeService>();
+        services.AddScoped<IGenderService, GenderService>();
+        services.AddScoped<IStreetTypeService, StreetTypeService>();
+        services.AddScoped<IVehicleTypeService, VehicleTypeService>();
+        services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+        services.AddScoped<IPaymentStatusService, PaymentStatusService>();
+        services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<IPaymentCardService, PaymentCardService>();
+        services.AddScoped<IInvoiceStatusService, InvoiceStatusService>();
+        services.AddScoped<IInvoiceService, InvoiceService>();
+        services.AddScoped<IInvoiceDetailService, InvoiceDetailService>();
+        services.AddScoped<IOrderStatusService, OrderStatusService>();
+        services.AddScoped<ICardTypeService, CardTypeService>();
+        services.AddScoped<IAuditActionTypeService, AuditActionTypeService>();
+        services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<IMechanicSpecialtyService, MechanicSpecialtyService>();
+        services.AddScoped<IMechanicAssignmentService, MechanicAssignmentService>();
+        services.AddScoped<IOrderServiceService, OrderServiceService>();
+        services.AddScoped<IOrderServicePartService, OrderServicePartService>();
+        services.AddScoped<IServiceTypeService, ServiceTypeService>();
+        services.AddScoped<IServiceOrderService, ServiceOrderService>();
+        services.AddScoped<IVehicleEntryInventoryService, VehicleEntryInventoryService>();
+        services.AddScoped<ISupplierService, SupplierService>();
+        services.AddScoped<IPartCategoryService, PartCategoryService>();
+        services.AddScoped<IPartBrandService, PartBrandService>();
+        services.AddScoped<IPartService, PartService>();
+        services.AddScoped<IPartPurchaseService, PartPurchaseService>();
+        services.AddScoped<IPartPurchaseDetailService, PartPurchaseDetailService>();
+        services.AddScoped<IVehicleBrandService, VehicleBrandService>();
+        services.AddScoped<IVehicleModelService, VehicleModelService>();
+        services.AddScoped<IVehicleService, VehicleService>();
+        services.AddScoped<IVehicleOwnerHistoryService, VehicleOwnerHistoryService>();
+        services.AddScoped<ICountryService, CountryService>();
+        services.AddScoped<IDepartmentService, DepartmentService>();
+        services.AddScoped<ICityService, CityService>();
+        services.AddScoped<INeighborhoodService, NeighborhoodService>();
+        services.AddScoped<IAddressService, AddressService>();
+        services.AddScoped<IPersonService, PersonService>();
+        services.AddScoped<IEmailDomainService, EmailDomainService>();
+        services.AddScoped<IPersonEmailService, PersonEmailService>();
+        services.AddScoped<IPersonPhoneService, PersonPhoneService>();
+        services.AddScoped<IPersonRoleService, PersonRoleService>();
+        services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IAuthService, AuthService>();
+
+        return services;
+    }
+}
+
+
+==================== .\Application\Features\Audits\Dtos\AuditDto.cs ====================
+
+namespace Application.Features.Audits.Dtos;
+
+public class AuditDto
+{
+    public int AuditId { get; set; }
+    public int UserId { get; set; }
+    public int AuditActionTypeId { get; set; }
+    public string AffectedEntity { get; set; } = string.Empty;
+    public int AffectedRecordId { get; set; }
+    public string? Description { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+
+==================== .\Application\Features\Audits\Requests\CreateAuditRequest.cs ====================
+
+namespace Application.Features.Audits.Requests;
+
+public class CreateAuditRequest
+{
+    public int UserId { get; set; }
+    public int AuditActionTypeId { get; set; }
+    public string? AffectedEntity { get; set; }
+    public int AffectedRecordId { get; set; }
+    public string? Description { get; set; }
+}
+
+
+==================== .\Application\Features\Audits\Requests\UpdateAuditRequest.cs ====================
+
+namespace Application.Features.Audits.Requests;
+
+public class UpdateAuditRequest
+{
+    public int UserId { get; set; }
+    public int AuditActionTypeId { get; set; }
+    public string? AffectedEntity { get; set; }
+    public int AffectedRecordId { get; set; }
+    public string? Description { get; set; }
+}
+
+
+==================== .\Application\Features\Audits\Errors\AuditErrors.cs ====================
+
+using Application.Common.Results;
+
+namespace Application.Features.Audits.Errors;
+
+public static class AuditErrors
+{
+    public static readonly Error NotFound = new("Audits.NotFound", "Audit was not found.");
+    public static readonly Error UserIdInvalid = new("Audits.UserIdInvalid", "UserId must be greater than 0.");
+    public static readonly Error UserNotFound = new("Audits.UserNotFound", "User was not found.");
+    public static readonly Error AuditActionTypeIdInvalid = new("Audits.AuditActionTypeIdInvalid", "AuditActionTypeId must be greater than 0.");
+    public static readonly Error AuditActionTypeNotFound = new("Audits.AuditActionTypeNotFound", "Audit action type was not found.");
+    public static readonly Error AffectedEntityRequired = new("Audits.AffectedEntityRequired", "AffectedEntity is required.");
+    public static readonly Error AffectedEntityTooLong = new("Audits.AffectedEntityTooLong", "AffectedEntity cannot exceed 100 characters.");
+    public static readonly Error AffectedRecordIdInvalid = new("Audits.AffectedRecordIdInvalid", "AffectedRecordId must be greater than 0.");
+}
+
+
+==================== .\Application\Features\Audits\IAuditService.cs ====================
+
+using Application.Common.Results;
+using Application.Features.Audits.Dtos;
+using Application.Features.Audits.Requests;
+
+namespace Application.Features.Audits;
+
+public interface IAuditService
+{
+    Task<Result<IReadOnlyList<AuditDto>>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    Task<Result<AuditDto>> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+
+    Task<Result<AuditDto>> CreateAsync(CreateAuditRequest request, CancellationToken cancellationToken = default);
+
+    Task<Result<AuditDto>> UpdateAsync(int id, UpdateAuditRequest request, CancellationToken cancellationToken = default);
+
+    Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default);
+}
+
+
+==================== .\Application\Features\Audits\AuditService.cs ====================
+
+using Application.Common.Interfaces.Persistence;
+using Application.Common.Results;
+using Application.Features.Audits.Dtos;
+using Application.Features.Audits.Errors;
+using Application.Features.Audits.Requests;
+using Domain.Entities;
+
+namespace Application.Features.Audits;
+
+public class AuditService : IAuditService
+{
+    private const int AffectedEntityMaxLength = 100;
+
+    private readonly IUnitOfWork _unitOfWork;
+
+    public AuditService(IUnitOfWork unitOfWork)
+    {
+        _unitOfWork = unitOfWork;
+    }
+
+    public async Task<Result<IReadOnlyList<AuditDto>>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var auditRepository = _unitOfWork.Repository<Audit>();
+        var audits = await auditRepository.GetAllAsync(cancellationToken);
+
+        var auditDtos = audits
+            .OrderBy(x => x.AuditId)
+            .Select(MapToDto)
+            .ToList();
+
+        return Result<IReadOnlyList<AuditDto>>.Success(auditDtos);
+    }
+
+    public async Task<Result<AuditDto>> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var auditRepository = _unitOfWork.Repository<Audit>();
+        var audit = await auditRepository.GetByIdAsync(id, cancellationToken);
+
+        if (audit is null)
+        {
+            return Result<AuditDto>.Failure(AuditErrors.NotFound);
+        }
+
+        return Result<AuditDto>.Success(MapToDto(audit));
+    }
+
+    public async Task<Result<AuditDto>> CreateAsync(CreateAuditRequest request, CancellationToken cancellationToken = default)
+    {
+        var userId = request?.UserId ?? 0;
+        var auditActionTypeId = request?.AuditActionTypeId ?? 0;
+        var affectedEntity = NormalizeRequiredText(request?.AffectedEntity);
+        var affectedRecordId = request?.AffectedRecordId ?? 0;
+        var description = NormalizeOptionalText(request?.Description);
+
+        var validationError = Validate(userId, auditActionTypeId, affectedEntity, affectedRecordId);
+        if (validationError is not null)
+        {
+            return Result<AuditDto>.Failure(validationError);
+        }
+
+        var userRepository = _unitOfWork.Repository<User>();
+        var userExists = await userRepository.ExistsAsync(
+            x => x.UserId == userId,
+            cancellationToken);
+
+        if (!userExists)
+        {
+            return Result<AuditDto>.Failure(AuditErrors.UserNotFound);
+        }
+
+        var auditActionTypeRepository = _unitOfWork.Repository<AuditActionType>();
+        var auditActionTypeExists = await auditActionTypeRepository.ExistsAsync(
+            x => x.AuditActionTypeId == auditActionTypeId,
+            cancellationToken);
+
+        if (!auditActionTypeExists)
+        {
+            return Result<AuditDto>.Failure(AuditErrors.AuditActionTypeNotFound);
+        }
+
+        var audit = new Audit
+        {
+            UserId = userId,
+            AuditActionTypeId = auditActionTypeId,
+            AffectedEntity = affectedEntity,
+            AffectedRecordId = affectedRecordId,
+            Description = description,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var auditRepository = _unitOfWork.Repository<Audit>();
+        await auditRepository.AddAsync(audit, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result<AuditDto>.Success(MapToDto(audit));
+    }
+
+    public async Task<Result<AuditDto>> UpdateAsync(int id, UpdateAuditRequest request, CancellationToken cancellationToken = default)
+    {
+        var auditRepository = _unitOfWork.Repository<Audit>();
+        var audit = await auditRepository.GetByIdAsync(id, cancellationToken);
+
+        if (audit is null)
+        {
+            return Result<AuditDto>.Failure(AuditErrors.NotFound);
+        }
+
+        var userId = request?.UserId ?? 0;
+        var auditActionTypeId = request?.AuditActionTypeId ?? 0;
+        var affectedEntity = NormalizeRequiredText(request?.AffectedEntity);
+        var affectedRecordId = request?.AffectedRecordId ?? 0;
+        var description = NormalizeOptionalText(request?.Description);
+
+        var validationError = Validate(userId, auditActionTypeId, affectedEntity, affectedRecordId);
+        if (validationError is not null)
+        {
+            return Result<AuditDto>.Failure(validationError);
+        }
+
+        var userRepository = _unitOfWork.Repository<User>();
+        var userExists = await userRepository.ExistsAsync(
+            x => x.UserId == userId,
+            cancellationToken);
+
+        if (!userExists)
+        {
+            return Result<AuditDto>.Failure(AuditErrors.UserNotFound);
+        }
+
+        var auditActionTypeRepository = _unitOfWork.Repository<AuditActionType>();
+        var auditActionTypeExists = await auditActionTypeRepository.ExistsAsync(
+            x => x.AuditActionTypeId == auditActionTypeId,
+            cancellationToken);
+
+        if (!auditActionTypeExists)
+        {
+            return Result<AuditDto>.Failure(AuditErrors.AuditActionTypeNotFound);
+        }
+
+        audit.UserId = userId;
+        audit.AuditActionTypeId = auditActionTypeId;
+        audit.AffectedEntity = affectedEntity;
+        audit.AffectedRecordId = affectedRecordId;
+        audit.Description = description;
+
+        auditRepository.Update(audit);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result<AuditDto>.Success(MapToDto(audit));
+    }
+
+    public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var auditRepository = _unitOfWork.Repository<Audit>();
+        var audit = await auditRepository.GetByIdAsync(id, cancellationToken);
+
+        if (audit is null)
+        {
+            return Result.Failure(AuditErrors.NotFound);
+        }
+
+        auditRepository.Remove(audit);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
+    }
+
+    private static AuditDto MapToDto(Audit audit)
+    {
+        return new AuditDto
+        {
+            AuditId = audit.AuditId,
+            UserId = audit.UserId,
+            AuditActionTypeId = audit.AuditActionTypeId,
+            AffectedEntity = audit.AffectedEntity,
+            AffectedRecordId = audit.AffectedRecordId,
+            Description = audit.Description,
+            CreatedAt = audit.CreatedAt
+        };
+    }
+
+    private static Error? Validate(
+        int userId,
+        int auditActionTypeId,
+        string affectedEntity,
+        int affectedRecordId)
+    {
+        if (userId <= 0)
+        {
+            return AuditErrors.UserIdInvalid;
+        }
+
+        if (auditActionTypeId <= 0)
+        {
+            return AuditErrors.AuditActionTypeIdInvalid;
+        }
+
+        if (string.IsNullOrWhiteSpace(affectedEntity))
+        {
+            return AuditErrors.AffectedEntityRequired;
+        }
+
+        if (affectedEntity.Length > AffectedEntityMaxLength)
+        {
+            return AuditErrors.AffectedEntityTooLong;
+        }
+
+        if (affectedRecordId <= 0)
+        {
+            return AuditErrors.AffectedRecordIdInvalid;
+        }
+
+        return null;
+    }
+
+    private static string NormalizeRequiredText(string? value)
+    {
+        return (value ?? string.Empty).Trim();
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+}
+
+
+==================== .\Api\Controllers\AuditsController.cs ====================
+
+using Application.Features.Audits;
+using Application.Features.Audits.Requests;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Api.Controllers;
+
+[ApiController]
+[Route("api/audits")]
+public class AuditsController : BaseApiController
+{
+    private readonly IAuditService _auditService;
+
+    public AuditsController(IAuditService auditService)
+    {
+        _auditService = auditService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
+    {
+        var result = await _auditService.GetAllAsync(cancellationToken);
+        return FromResult(result, audits => Ok(audits));
+    }
+
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
+    {
+        var result = await _auditService.GetByIdAsync(id, cancellationToken);
+        return FromResult(result, audit => Ok(audit));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateAuditRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _auditService.CreateAsync(request, cancellationToken);
+        return FromResult(result, audit => CreatedAtAction(nameof(GetById), new { id = audit.AuditId }, audit));
+    }
+
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateAuditRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _auditService.UpdateAsync(id, request, cancellationToken);
+        return FromResult(result, audit => Ok(audit));
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    {
+        var result = await _auditService.DeleteAsync(id, cancellationToken);
+        return FromResult(result, () => NoContent());
+    }
+}
+

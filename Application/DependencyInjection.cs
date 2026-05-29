@@ -1,6 +1,7 @@
 using Application.Common.Security;
 using Application.Features.Auth;
 using Application.Features.AuditActionTypes;
+using Application.Features.Audits;
 using Application.Features.Addresses;
 using Application.Features.CardTypes;
 using Application.Features.Cities;
@@ -69,6 +70,7 @@ public static class DependencyInjection
         services.AddScoped<IOrderStatusService, OrderStatusService>();
         services.AddScoped<ICardTypeService, CardTypeService>();
         services.AddScoped<IAuditActionTypeService, AuditActionTypeService>();
+        services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IMechanicSpecialtyService, MechanicSpecialtyService>();
         services.AddScoped<IMechanicAssignmentService, MechanicAssignmentService>();
         services.AddScoped<IOrderServiceService, OrderServiceService>();
