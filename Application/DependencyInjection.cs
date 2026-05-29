@@ -38,6 +38,7 @@ using Application.Features.Roles;
 using Application.Features.ServiceOrders;
 using Application.Features.ServiceTypes;
 using Application.Features.StreetTypes;
+using Application.Features.Staff;
 using Application.Features.Suppliers;
 using Application.Features.Neighborhoods;
 using Application.Features.VehicleBrands;
@@ -106,6 +107,7 @@ public static class DependencyInjection
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IStaffService, StaffService>();
 
         return services;
     }
