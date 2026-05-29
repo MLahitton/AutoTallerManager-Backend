@@ -6,6 +6,7 @@ namespace Api.Controllers;
 
 [ApiController]
 [Route("api/catalogs")]
+[Authorize(Roles = "Admin,Receptionist,Mechanic")]
 public class CatalogsController : BaseApiController
 {
     private readonly ICatalogService _catalogService;
@@ -15,6 +16,7 @@ public class CatalogsController : BaseApiController
         _catalogService = catalogService;
     }
 
+    [AllowAnonymous]
     [HttpGet("public-registration")]
     public async Task<IActionResult> GetPublicRegistrationCatalogs(CancellationToken cancellationToken)
     {
@@ -23,7 +25,6 @@ public class CatalogsController : BaseApiController
     }
 
     [HttpGet("workshop")]
-    [Authorize(Roles = "Admin,Receptionist,Mechanic")]
     public async Task<IActionResult> GetWorkshopCatalogs(CancellationToken cancellationToken)
     {
         var result = await _catalogService.GetWorkshopCatalogsAsync(cancellationToken);

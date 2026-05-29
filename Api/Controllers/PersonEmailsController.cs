@@ -1,11 +1,13 @@
 using Application.Features.PersonEmails;
 using Application.Features.PersonEmails.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/person-emails")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class PersonEmailsController : BaseApiController
 {
     private readonly IPersonEmailService _personEmailService;

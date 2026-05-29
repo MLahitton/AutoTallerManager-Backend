@@ -1,11 +1,13 @@
 using Application.Features.VehicleOwnerHistories;
 using Application.Features.VehicleOwnerHistories.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/vehicle-owner-histories")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class VehicleOwnerHistoriesController : BaseApiController
 {
     private readonly IVehicleOwnerHistoryService _vehicleOwnerHistoryService;

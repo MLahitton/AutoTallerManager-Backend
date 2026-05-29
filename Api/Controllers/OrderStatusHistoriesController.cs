@@ -1,11 +1,13 @@
 using Application.Features.OrderStatusHistories;
 using Application.Features.OrderStatusHistories.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/order-status-histories")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class OrderStatusHistoriesController : BaseApiController
 {
     private readonly IOrderStatusHistoryService _orderStatusHistoryService;

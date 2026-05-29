@@ -1,11 +1,13 @@
 using Application.Features.OrderStatuses;
 using Application.Features.OrderStatuses.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/order-statuses")]
+[Authorize(Roles = "Admin")]
 public class OrderStatusesController : BaseApiController
 {
     private readonly IOrderStatusService _orderStatusService;

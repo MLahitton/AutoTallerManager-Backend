@@ -1,11 +1,13 @@
 using Application.Features.Parts;
 using Application.Features.Parts.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/parts")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class PartsController : BaseApiController
 {
     private readonly IPartService _partService;

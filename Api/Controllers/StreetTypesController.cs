@@ -1,11 +1,13 @@
 using Application.Features.StreetTypes;
 using Application.Features.StreetTypes.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/street-types")]
+[Authorize(Roles = "Admin")]
 public class StreetTypesController : BaseApiController
 {
     private readonly IStreetTypeService _streetTypeService;

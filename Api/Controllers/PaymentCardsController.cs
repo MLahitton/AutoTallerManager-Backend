@@ -1,11 +1,13 @@
 using Application.Features.PaymentCards;
 using Application.Features.PaymentCards.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/payment-cards")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class PaymentCardsController : BaseApiController
 {
     private readonly IPaymentCardService _paymentCardService;

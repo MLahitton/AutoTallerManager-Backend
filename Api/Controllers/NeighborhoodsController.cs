@@ -1,11 +1,13 @@
 using Application.Features.Neighborhoods;
 using Application.Features.Neighborhoods.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/neighborhoods")]
+[Authorize(Roles = "Admin")]
 public class NeighborhoodsController : BaseApiController
 {
     private readonly INeighborhoodService _neighborhoodService;

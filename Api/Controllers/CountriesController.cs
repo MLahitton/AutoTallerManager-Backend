@@ -1,11 +1,13 @@
 using Application.Features.Countries;
 using Application.Features.Countries.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/countries")]
+[Authorize(Roles = "Admin")]
 public class CountriesController : BaseApiController
 {
     private readonly ICountryService _countryService;

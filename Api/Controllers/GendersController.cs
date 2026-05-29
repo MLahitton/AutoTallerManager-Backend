@@ -1,11 +1,13 @@
 using Application.Features.Genders;
 using Application.Features.Genders.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/genders")]
+[Authorize(Roles = "Admin")]
 public class GendersController : BaseApiController
 {
     private readonly IGenderService _genderService;

@@ -1,11 +1,13 @@
 using Application.Features.Suppliers;
 using Application.Features.Suppliers.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/suppliers")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class SuppliersController : BaseApiController
 {
     private readonly ISupplierService _supplierService;

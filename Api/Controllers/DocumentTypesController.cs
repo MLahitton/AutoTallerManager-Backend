@@ -1,11 +1,13 @@
 using Application.Features.DocumentTypes;
 using Application.Features.DocumentTypes.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/document-types")]
+[Authorize(Roles = "Admin")]
 public class DocumentTypesController : BaseApiController
 {
     private readonly IDocumentTypeService _documentTypeService;

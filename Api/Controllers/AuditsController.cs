@@ -1,11 +1,13 @@
 using Application.Features.Audits;
 using Application.Features.Audits.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/audits")]
+[Authorize(Roles = "Admin")]
 public class AuditsController : BaseApiController
 {
     private readonly IAuditService _auditService;

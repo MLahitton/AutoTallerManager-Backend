@@ -1,11 +1,13 @@
 using Application.Features.VehicleTypes;
 using Application.Features.VehicleTypes.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/vehicle-types")]
+[Authorize(Roles = "Admin")]
 public class VehicleTypesController : BaseApiController
 {
     private readonly IVehicleTypeService _vehicleTypeService;

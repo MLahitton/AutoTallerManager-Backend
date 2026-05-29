@@ -1,11 +1,13 @@
 using Application.Features.PersonPhones;
 using Application.Features.PersonPhones.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/person-phones")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class PersonPhonesController : BaseApiController
 {
     private readonly IPersonPhoneService _personPhoneService;

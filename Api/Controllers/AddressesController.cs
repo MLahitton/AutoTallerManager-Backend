@@ -1,11 +1,13 @@
 using Application.Features.Addresses;
 using Application.Features.Addresses.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/addresses")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class AddressesController : BaseApiController
 {
     private readonly IAddressService _addressService;

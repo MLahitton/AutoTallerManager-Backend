@@ -1,11 +1,13 @@
 using Application.Features.InvoiceStatuses;
 using Application.Features.InvoiceStatuses.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/invoice-statuses")]
+[Authorize(Roles = "Admin")]
 public class InvoiceStatusesController : BaseApiController
 {
     private readonly IInvoiceStatusService _invoiceStatusService;

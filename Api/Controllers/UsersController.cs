@@ -1,11 +1,13 @@
 using Application.Features.Users;
 using Application.Features.Users.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/users")]
+[Authorize(Roles = "Admin")]
 public class UsersController : BaseApiController
 {
     private readonly IUserService _userService;

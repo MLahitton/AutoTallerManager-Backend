@@ -1,11 +1,13 @@
 using Application.Features.InvoiceDetails;
 using Application.Features.InvoiceDetails.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/invoice-details")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class InvoiceDetailsController : BaseApiController
 {
     private readonly IInvoiceDetailService _invoiceDetailService;

@@ -37,7 +37,7 @@ public class ServiceOrderWorkflowController : BaseApiController
     }
 
     [HttpPost("{id:int}/change-status")]
-    [Authorize(Roles = "Admin,Receptionist,Mechanic")]
+    [Authorize(Roles = "Admin,Receptionist")]
     public async Task<IActionResult> ChangeStatus(
         int id,
         [FromBody] ChangeServiceOrderStatusRequest request,

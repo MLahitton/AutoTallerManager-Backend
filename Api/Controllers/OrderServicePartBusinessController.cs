@@ -18,7 +18,7 @@ public class OrderServicePartBusinessController : BaseApiController
     }
 
     [HttpPost("{id:int}/approve")]
-    [Authorize(Roles = "Admin,Client")]
+    [Authorize(Roles = "Admin,Receptionist")]
     public async Task<IActionResult> Approve(int id, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentContext(out var currentPersonId, out var currentRoles))
@@ -36,7 +36,7 @@ public class OrderServicePartBusinessController : BaseApiController
     }
 
     [HttpPost("{id:int}/reject")]
-    [Authorize(Roles = "Admin,Client")]
+    [Authorize(Roles = "Admin,Receptionist")]
     public async Task<IActionResult> Reject(int id, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentContext(out var currentPersonId, out var currentRoles))
@@ -54,7 +54,7 @@ public class OrderServicePartBusinessController : BaseApiController
     }
 
     [HttpPut("{id:int}/change-quantity")]
-    [Authorize(Roles = "Admin,Mechanic")]
+    [Authorize(Roles = "Admin,Receptionist,Mechanic")]
     public async Task<IActionResult> ChangeQuantity(
         int id,
         [FromBody] ChangeOrderServicePartQuantityRequest request,

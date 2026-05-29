@@ -1,11 +1,13 @@
 using Application.Features.PaymentStatuses;
 using Application.Features.PaymentStatuses.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/payment-statuses")]
+[Authorize(Roles = "Admin")]
 public class PaymentStatusesController : BaseApiController
 {
     private readonly IPaymentStatusService _paymentStatusService;

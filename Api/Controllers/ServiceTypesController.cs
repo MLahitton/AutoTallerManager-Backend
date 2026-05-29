@@ -1,11 +1,13 @@
 using Application.Features.ServiceTypes;
 using Application.Features.ServiceTypes.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/service-types")]
+[Authorize(Roles = "Admin")]
 public class ServiceTypesController : BaseApiController
 {
     private readonly IServiceTypeService _serviceTypeService;

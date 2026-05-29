@@ -1,11 +1,13 @@
 using Application.Features.Cities;
 using Application.Features.Cities.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/cities")]
+[Authorize(Roles = "Admin")]
 public class CitiesController : BaseApiController
 {
     private readonly ICityService _cityService;

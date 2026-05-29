@@ -1,11 +1,13 @@
 using Application.Features.AuditActionTypes;
 using Application.Features.AuditActionTypes.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/audit-action-types")]
+[Authorize(Roles = "Admin")]
 public class AuditActionTypesController : BaseApiController
 {
     private readonly IAuditActionTypeService _auditActionTypeService;

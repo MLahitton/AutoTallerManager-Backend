@@ -1,11 +1,13 @@
 using Application.Features.MechanicAssignments;
 using Application.Features.MechanicAssignments.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/mechanic-assignments")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class MechanicAssignmentsController : BaseApiController
 {
     private readonly IMechanicAssignmentService _mechanicAssignmentService;

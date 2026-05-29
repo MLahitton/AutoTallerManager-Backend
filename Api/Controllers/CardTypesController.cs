@@ -1,11 +1,13 @@
 using Application.Features.CardTypes;
 using Application.Features.CardTypes.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/card-types")]
+[Authorize(Roles = "Admin")]
 public class CardTypesController : BaseApiController
 {
     private readonly ICardTypeService _cardTypeService;

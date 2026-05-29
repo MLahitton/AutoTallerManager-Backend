@@ -1,11 +1,13 @@
 using Application.Features.Persons;
 using Application.Features.Persons.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/persons")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class PersonsController : BaseApiController
 {
     private readonly IPersonService _personService;

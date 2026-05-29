@@ -1,11 +1,13 @@
 using Application.Features.PartCategories;
 using Application.Features.PartCategories.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/part-categories")]
+[Authorize(Roles = "Admin")]
 public class PartCategoriesController : BaseApiController
 {
     private readonly IPartCategoryService _partCategoryService;

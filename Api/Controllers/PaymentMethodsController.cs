@@ -1,11 +1,13 @@
 using Application.Features.PaymentMethods;
 using Application.Features.PaymentMethods.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/payment-methods")]
+[Authorize(Roles = "Admin")]
 public class PaymentMethodsController : BaseApiController
 {
     private readonly IPaymentMethodService _paymentMethodService;

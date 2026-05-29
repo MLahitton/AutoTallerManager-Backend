@@ -1,11 +1,13 @@
 using Application.Features.OrderServiceParts;
 using Application.Features.OrderServiceParts.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/order-service-parts")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class OrderServicePartsController : BaseApiController
 {
     private readonly IOrderServicePartService _orderServicePartService;

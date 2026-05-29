@@ -1,11 +1,13 @@
 using Application.Features.VehicleEntryInventories;
 using Application.Features.VehicleEntryInventories.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/vehicle-entry-inventories")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class VehicleEntryInventoriesController : BaseApiController
 {
     private readonly IVehicleEntryInventoryService _vehicleEntryInventoryService;

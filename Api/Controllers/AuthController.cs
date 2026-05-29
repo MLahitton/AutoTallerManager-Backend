@@ -1,5 +1,6 @@
 using Application.Features.Auth;
 using Application.Features.Auth.Requests;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
@@ -15,6 +16,7 @@ public class AuthController : BaseApiController
         _authService = authService;
     }
 
+    [AllowAnonymous]
     [HttpPost("register-client")]
     public async Task<IActionResult> RegisterClient([FromBody] RegisterClientRequest request, CancellationToken cancellationToken)
     {
@@ -22,6 +24,7 @@ public class AuthController : BaseApiController
         return FromResult(result, authResponse => Ok(authResponse));
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
@@ -29,6 +32,7 @@ public class AuthController : BaseApiController
         return FromResult(result, authResponse => Ok(authResponse));
     }
 
+    [AllowAnonymous]
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
     {
@@ -36,6 +40,7 @@ public class AuthController : BaseApiController
         return FromResult(result, authResponse => Ok(authResponse));
     }
 
+    [AllowAnonymous]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout([FromBody] LogoutRequest request, CancellationToken cancellationToken)
     {

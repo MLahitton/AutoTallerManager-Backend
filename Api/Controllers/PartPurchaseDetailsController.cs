@@ -1,11 +1,13 @@
 using Application.Features.PartPurchaseDetails;
 using Application.Features.PartPurchaseDetails.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/part-purchase-details")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class PartPurchaseDetailsController : BaseApiController
 {
     private readonly IPartPurchaseDetailService _partPurchaseDetailService;

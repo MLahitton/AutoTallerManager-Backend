@@ -1,11 +1,13 @@
 using Application.Features.PartBrands;
 using Application.Features.PartBrands.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/part-brands")]
+[Authorize(Roles = "Admin")]
 public class PartBrandsController : BaseApiController
 {
     private readonly IPartBrandService _partBrandService;

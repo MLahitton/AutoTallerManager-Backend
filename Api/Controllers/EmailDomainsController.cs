@@ -1,11 +1,13 @@
 using Application.Features.EmailDomains;
 using Application.Features.EmailDomains.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/email-domains")]
+[Authorize(Roles = "Admin")]
 public class EmailDomainsController : BaseApiController
 {
     private readonly IEmailDomainService _emailDomainService;

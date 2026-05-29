@@ -1,11 +1,13 @@
 using Application.Features.Roles;
 using Application.Features.Roles.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/roles")]
+[Authorize(Roles = "Admin")]
 public class RolesController : BaseApiController
 {
     private readonly IRoleService _roleService;

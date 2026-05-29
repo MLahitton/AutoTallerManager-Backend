@@ -1,11 +1,13 @@
 using Application.Features.Departments;
 using Application.Features.Departments.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/departments")]
+[Authorize(Roles = "Admin")]
 public class DepartmentsController : BaseApiController
 {
     private readonly IDepartmentService _departmentService;

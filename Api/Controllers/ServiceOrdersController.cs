@@ -1,11 +1,13 @@
 using Application.Features.ServiceOrders;
 using Application.Features.ServiceOrders.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/service-orders")]
+[Authorize(Roles = "Admin,Receptionist")]
 public class ServiceOrdersController : BaseApiController
 {
     private readonly IServiceOrderService _serviceOrderService;

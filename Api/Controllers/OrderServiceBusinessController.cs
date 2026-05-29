@@ -18,7 +18,7 @@ public class OrderServiceBusinessController : BaseApiController
     }
 
     [HttpPut("{id:int}/work-report")]
-    [Authorize(Roles = "Admin,Mechanic")]
+    [Authorize(Roles = "Admin,Receptionist,Mechanic")]
     public async Task<IActionResult> UpdateWorkReport(
         int id,
         [FromBody] UpdateWorkPerformedRequest request,
@@ -62,7 +62,7 @@ public class OrderServiceBusinessController : BaseApiController
     }
 
     [HttpPost("{id:int}/request-part")]
-    [Authorize(Roles = "Admin,Mechanic")]
+    [Authorize(Roles = "Admin,Receptionist,Mechanic")]
     public async Task<IActionResult> RequestPart(
         int id,
         [FromBody] RequestOrderServicePartRequest request,

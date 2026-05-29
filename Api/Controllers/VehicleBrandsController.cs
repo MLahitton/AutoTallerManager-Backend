@@ -1,11 +1,13 @@
 using Application.Features.VehicleBrands;
 using Application.Features.VehicleBrands.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/vehicle-brands")]
+[Authorize(Roles = "Admin")]
 public class VehicleBrandsController : BaseApiController
 {
     private readonly IVehicleBrandService _vehicleBrandService;
