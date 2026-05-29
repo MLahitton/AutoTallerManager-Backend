@@ -14,6 +14,7 @@ using Application.Features.MechanicSpecialties;
 using Application.Features.MechanicAssignments;
 using Application.Features.OrderStatuses;
 using Application.Features.OrderServices;
+using Application.Features.OrderServiceParts;
 using Application.Features.PartBrands;
 using Application.Features.PartCategories;
 using Application.Features.PartPurchaseDetails;
@@ -63,6 +64,7 @@ public static class DependencyInjection
         services.AddScoped<IMechanicSpecialtyService, MechanicSpecialtyService>();
         services.AddScoped<IMechanicAssignmentService, MechanicAssignmentService>();
         services.AddScoped<IOrderServiceService, OrderServiceService>();
+        services.AddScoped<IOrderServicePartService, OrderServicePartService>();
         services.AddScoped<IServiceTypeService, ServiceTypeService>();
         services.AddScoped<IServiceOrderService, ServiceOrderService>();
         services.AddScoped<IVehicleEntryInventoryService, VehicleEntryInventoryService>();
