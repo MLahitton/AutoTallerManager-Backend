@@ -5,7 +5,9 @@ using Application.Features.AuditActionTypes;
 using Application.Features.Audits;
 using Application.Features.Addresses;
 using Application.Features.CardTypes;
+using Application.Features.Catalogs;
 using Application.Features.Cities;
+using Application.Features.ClientVehicleFlows;
 using Application.Features.Countries;
 using Application.Features.Departments;
 using Application.Features.DocumentTypes;
@@ -112,6 +114,8 @@ public static class DependencyInjection
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IStaffService, StaffService>();
+        services.AddScoped<ICatalogService, CatalogService>();
+        services.AddScoped<IClientVehicleFlowService, ClientVehicleFlowService>();
 
         return services;
     }
