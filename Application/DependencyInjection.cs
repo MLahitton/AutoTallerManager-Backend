@@ -25,7 +25,10 @@ using Application.Features.ServiceTypes;
 using Application.Features.StreetTypes;
 using Application.Features.Neighborhoods;
 using Application.Features.VehicleBrands;
+using Application.Features.VehicleModels;
+using Application.Features.VehicleOwnerHistories;
 using Application.Features.VehicleTypes;
+using Application.Features.Vehicles;
 using Application.Features.Users;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -54,6 +57,9 @@ public static class DependencyInjection
         services.AddScoped<IPartCategoryService, PartCategoryService>();
         services.AddScoped<IPartBrandService, PartBrandService>();
         services.AddScoped<IVehicleBrandService, VehicleBrandService>();
+        services.AddScoped<IVehicleModelService, VehicleModelService>();
+        services.AddScoped<IVehicleService, VehicleService>();
+        services.AddScoped<IVehicleOwnerHistoryService, VehicleOwnerHistoryService>();
         services.AddScoped<ICountryService, CountryService>();
         services.AddScoped<IDepartmentService, DepartmentService>();
         services.AddScoped<ICityService, CityService>();
