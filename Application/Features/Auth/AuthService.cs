@@ -10,6 +10,16 @@ namespace Application.Features.Auth;
 
 public class AuthService : IAuthService
 {
+    private const int DocumentNumberMaxLength = 30;
+    private const int FirstNameMaxLength = 50;
+    private const int MiddleNameMaxLength = 50;
+    private const int LastNameMaxLength = 50;
+    private const int SecondLastNameMaxLength = 50;
+    private const int PhoneNumberMaxLength = 20;
+    private const int MinPasswordLength = 8;
+    private const int MaxPasswordLength = 100;
+    private const string ClientRoleName = "Client";
+
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
@@ -28,6 +38,252 @@ public class AuthService : IAuthService
         _jwtTokenGenerator = jwtTokenGenerator;
         _refreshTokenGenerator = refreshTokenGenerator;
         _authTokenSettings = authTokenSettings;
+    }
+
+    public async Task<Result<AuthResponseDto>> RegisterClientAsync(RegisterClientRequest request, CancellationToken cancellationToken = default)
+    {
+        var documentTypeId = request?.DocumentTypeId ?? 0;
+        var documentNumber = NormalizeRequiredText(request?.DocumentNumber);
+        var firstName = NormalizeRequiredText(request?.FirstName);
+        var middleName = NormalizeOptionalText(request?.MiddleName);
+        var lastName = NormalizeRequiredText(request?.LastName);
+        var secondLastName = NormalizeOptionalText(request?.SecondLastName);
+        var birthDate = request?.BirthDate;
+        var genderId = request?.GenderId;
+        var addressId = request?.AddressId;
+        var normalizedEmail = NormalizeEmail(request?.Email);
+        var password = NormalizePassword(request?.Password);
+        var phoneNumberProvided = request?.PhoneNumber is not null;
+        var normalizedPhoneNumber = NormalizeOptionalText(request?.PhoneNumber);
+        var phoneCountryId = request?.PhoneCountryId;
+
+        var validationError = ValidateRegisterClientInput(
+            documentTypeId,
+            documentNumber,
+            firstName,
+            middleName,
+            lastName,
+            secondLastName,
+            birthDate,
+            genderId,
+            addressId,
+            normalizedEmail,
+            password,
+            phoneNumberProvided,
+            normalizedPhoneNumber,
+            phoneCountryId);
+
+        if (validationError is not null)
+        {
+            return Result<AuthResponseDto>.Failure(validationError);
+        }
+
+        if (!TrySplitEmail(normalizedEmail, out var emailUser, out var domain))
+        {
+            return Result<AuthResponseDto>.Failure(AuthErrors.EmailInvalid);
+        }
+
+        var documentTypeRepository = _unitOfWork.Repository<DocumentType>();
+        var documentTypeExists = await documentTypeRepository.ExistsAsync(
+            x => x.DocumentTypeId == documentTypeId,
+            cancellationToken);
+
+        if (!documentTypeExists)
+        {
+            return Result<AuthResponseDto>.Failure(AuthErrors.DocumentTypeNotFound);
+        }
+
+        if (genderId.HasValue)
+        {
+            var genderRepository = _unitOfWork.Repository<Gender>();
+            var genderExists = await genderRepository.ExistsAsync(
+                x => x.GenderId == genderId.Value,
+                cancellationToken);
+
+            if (!genderExists)
+            {
+                return Result<AuthResponseDto>.Failure(AuthErrors.GenderNotFound);
+            }
+        }
+
+        if (addressId.HasValue)
+        {
+            var addressRepository = _unitOfWork.Repository<Address>();
+            var addressExists = await addressRepository.ExistsAsync(
+                x => x.AddressId == addressId.Value,
+                cancellationToken);
+
+            if (!addressExists)
+            {
+                return Result<AuthResponseDto>.Failure(AuthErrors.AddressNotFound);
+            }
+        }
+
+        if (phoneNumberProvided)
+        {
+            var countryRepository = _unitOfWork.Repository<Country>();
+            var countryExists = await countryRepository.ExistsAsync(
+                x => x.CountryId == phoneCountryId!.Value,
+                cancellationToken);
+
+            if (!countryExists)
+            {
+                return Result<AuthResponseDto>.Failure(AuthErrors.PhoneCountryNotFound);
+            }
+        }
+
+        var personRepository = _unitOfWork.Repository<Person>();
+        var documentNumberExists = await personRepository.ExistsAsync(
+            x => x.DocumentNumber == documentNumber,
+            cancellationToken);
+
+        if (documentNumberExists)
+        {
+            return Result<AuthResponseDto>.Failure(AuthErrors.DocumentNumberAlreadyExists);
+        }
+
+        var roleRepository = _unitOfWork.Repository<Role>();
+        var roles = await roleRepository.GetAllAsync(cancellationToken);
+        var clientRole = roles.FirstOrDefault(
+            x => x.RoleName.Equals(ClientRoleName, StringComparison.OrdinalIgnoreCase));
+
+        if (clientRole is null)
+        {
+            return Result<AuthResponseDto>.Failure(AuthErrors.ClientRoleNotFound);
+        }
+
+        var emailDomainRepository = _unitOfWork.Repository<EmailDomain>();
+        var existingEmailDomains = await emailDomainRepository.FindAsync(
+            x => x.Domain == domain,
+            cancellationToken);
+        var emailDomain = existingEmailDomains.FirstOrDefault();
+
+        var personEmailRepository = _unitOfWork.Repository<PersonEmail>();
+        if (emailDomain is not null)
+        {
+            var emailAlreadyExists = await personEmailRepository.ExistsAsync(
+                x => x.EmailUser == emailUser && x.EmailDomainId == emailDomain.EmailDomainId,
+                cancellationToken);
+
+            if (emailAlreadyExists)
+            {
+                return Result<AuthResponseDto>.Failure(AuthErrors.EmailAlreadyExists);
+            }
+        }
+
+        var personPhoneRepository = _unitOfWork.Repository<PersonPhone>();
+        if (phoneNumberProvided)
+        {
+            var phoneAlreadyExists = await personPhoneRepository.ExistsAsync(
+                x => x.CountryId == phoneCountryId!.Value && x.PhoneNumber == normalizedPhoneNumber!,
+                cancellationToken);
+
+            if (phoneAlreadyExists)
+            {
+                return Result<AuthResponseDto>.Failure(AuthErrors.PhoneNumberAlreadyExists);
+            }
+        }
+
+        var refreshToken = _refreshTokenGenerator.Generate();
+        var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(GetSafeRefreshDays());
+
+        var person = new Person
+        {
+            DocumentTypeId = documentTypeId,
+            DocumentNumber = documentNumber,
+            FirstName = firstName,
+            MiddleName = middleName,
+            LastName = lastName,
+            SecondLastName = secondLastName,
+            BirthDate = birthDate,
+            GenderId = genderId,
+            AddressId = addressId
+        };
+
+        if (emailDomain is null)
+        {
+            emailDomain = new EmailDomain
+            {
+                Domain = domain
+            };
+
+            await emailDomainRepository.AddAsync(emailDomain, cancellationToken);
+        }
+
+        var personEmail = new PersonEmail
+        {
+            Person = person,
+            EmailUser = emailUser,
+            IsPrimary = true
+        };
+
+        if (emailDomain.EmailDomainId > 0)
+        {
+            personEmail.EmailDomainId = emailDomain.EmailDomainId;
+        }
+        else
+        {
+            personEmail.EmailDomain = emailDomain;
+        }
+
+        var personRole = new PersonRole
+        {
+            Person = person,
+            RoleId = clientRole.RoleId,
+            IsActive = true
+        };
+
+        var user = new User
+        {
+            Person = person,
+            PasswordHash = _passwordHasher.Hash(password),
+            RefreshToken = refreshToken,
+            RefreshTokenExpiration = refreshTokenExpiresAt,
+            IsActive = true
+        };
+
+        await personRepository.AddAsync(person, cancellationToken);
+        await personEmailRepository.AddAsync(personEmail, cancellationToken);
+
+        if (phoneNumberProvided)
+        {
+            var personPhone = new PersonPhone
+            {
+                Person = person,
+                CountryId = phoneCountryId!.Value,
+                PhoneNumber = normalizedPhoneNumber!,
+                IsPrimary = true
+            };
+
+            await personPhoneRepository.AddAsync(personPhone, cancellationToken);
+        }
+
+        var personRoleRepository = _unitOfWork.Repository<PersonRole>();
+        await personRoleRepository.AddAsync(personRole, cancellationToken);
+
+        var userRepository = _unitOfWork.Repository<User>();
+        await userRepository.AddAsync(user, cancellationToken);
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var roleNames = new List<string> { clientRole.RoleName };
+        var tokenResult = _jwtTokenGenerator.GenerateToken(user.UserId, person.PersonId, normalizedEmail, roleNames);
+
+        return Result<AuthResponseDto>.Success(new AuthResponseDto
+        {
+            AccessToken = tokenResult.AccessToken,
+            AccessTokenExpiresAt = tokenResult.ExpiresAt,
+            RefreshToken = refreshToken,
+            RefreshTokenExpiresAt = refreshTokenExpiresAt,
+            User = new AuthUserDto
+            {
+                UserId = user.UserId,
+                PersonId = person.PersonId,
+                Email = normalizedEmail,
+                IsActive = user.IsActive,
+                Roles = roleNames
+            }
+        });
     }
 
     public async Task<Result<AuthResponseDto>> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
@@ -291,6 +547,163 @@ public class AuthService : IAuthService
     private static string NormalizeRefreshToken(string? refreshToken)
     {
         return (refreshToken ?? string.Empty).Trim();
+    }
+
+    private static string NormalizeRequiredText(string? value)
+    {
+        return (value ?? string.Empty).Trim();
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static Error? ValidateRegisterClientInput(
+        int documentTypeId,
+        string documentNumber,
+        string firstName,
+        string? middleName,
+        string lastName,
+        string? secondLastName,
+        DateTime? birthDate,
+        int? genderId,
+        int? addressId,
+        string normalizedEmail,
+        string password,
+        bool phoneNumberProvided,
+        string? phoneNumber,
+        int? phoneCountryId)
+    {
+        if (documentTypeId <= 0)
+        {
+            return AuthErrors.DocumentTypeIdInvalid;
+        }
+
+        if (string.IsNullOrWhiteSpace(documentNumber))
+        {
+            return AuthErrors.DocumentNumberRequired;
+        }
+
+        if (documentNumber.Length > DocumentNumberMaxLength)
+        {
+            return AuthErrors.DocumentNumberTooLong;
+        }
+
+        if (string.IsNullOrWhiteSpace(firstName))
+        {
+            return AuthErrors.FirstNameRequired;
+        }
+
+        if (firstName.Length > FirstNameMaxLength)
+        {
+            return AuthErrors.FirstNameTooLong;
+        }
+
+        if (middleName is not null && middleName.Length > MiddleNameMaxLength)
+        {
+            return AuthErrors.MiddleNameTooLong;
+        }
+
+        if (string.IsNullOrWhiteSpace(lastName))
+        {
+            return AuthErrors.LastNameRequired;
+        }
+
+        if (lastName.Length > LastNameMaxLength)
+        {
+            return AuthErrors.LastNameTooLong;
+        }
+
+        if (secondLastName is not null && secondLastName.Length > SecondLastNameMaxLength)
+        {
+            return AuthErrors.SecondLastNameTooLong;
+        }
+
+        if (birthDate.HasValue && birthDate.Value.Date > DateTime.UtcNow.Date)
+        {
+            return AuthErrors.BirthDateInvalid;
+        }
+
+        if (genderId.HasValue && genderId.Value <= 0)
+        {
+            return AuthErrors.GenderIdInvalid;
+        }
+
+        if (addressId.HasValue && addressId.Value <= 0)
+        {
+            return AuthErrors.AddressIdInvalid;
+        }
+
+        if (string.IsNullOrWhiteSpace(normalizedEmail))
+        {
+            return AuthErrors.EmailRequired;
+        }
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            return AuthErrors.PasswordRequired;
+        }
+
+        if (password.Length < MinPasswordLength)
+        {
+            return AuthErrors.PasswordTooShort;
+        }
+
+        if (password.Length > MaxPasswordLength)
+        {
+            return AuthErrors.PasswordTooLong;
+        }
+
+        if (phoneNumberProvided)
+        {
+            if (!phoneCountryId.HasValue || phoneCountryId.Value <= 0)
+            {
+                return AuthErrors.PhoneCountryIdRequired;
+            }
+
+            if (string.IsNullOrWhiteSpace(phoneNumber))
+            {
+                return AuthErrors.PhoneNumberInvalid;
+            }
+
+            if (phoneNumber.Length > PhoneNumberMaxLength)
+            {
+                return AuthErrors.PhoneNumberTooLong;
+            }
+
+            if (!IsValidPhoneNumber(phoneNumber))
+            {
+                return AuthErrors.PhoneNumberInvalid;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsValidPhoneNumber(string phoneNumber)
+    {
+        var digitCount = 0;
+
+        for (var i = 0; i < phoneNumber.Length; i++)
+        {
+            var c = phoneNumber[i];
+
+            if (i == 0 && c == '+')
+            {
+                continue;
+            }
+
+            if (!char.IsDigit(c))
+            {
+                return false;
+            }
+
+            digitCount++;
+        }
+
+        return digitCount > 0;
     }
 
     private static bool TrySplitEmail(string email, out string emailUser, out string domain)

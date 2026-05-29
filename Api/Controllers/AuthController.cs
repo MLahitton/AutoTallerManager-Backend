@@ -15,6 +15,13 @@ public class AuthController : BaseApiController
         _authService = authService;
     }
 
+    [HttpPost("register-client")]
+    public async Task<IActionResult> RegisterClient([FromBody] RegisterClientRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _authService.RegisterClientAsync(request, cancellationToken);
+        return FromResult(result, authResponse => Ok(authResponse));
+    }
+
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {

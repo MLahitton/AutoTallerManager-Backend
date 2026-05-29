@@ -1,4 +1,5 @@
 using Application.Common.Security;
+using Application.Features.Account;
 using Application.Features.Auth;
 using Application.Features.AuditActionTypes;
 using Application.Features.Audits;
@@ -103,6 +104,7 @@ public static class DependencyInjection
         services.AddScoped<IPersonPhoneService, PersonPhoneService>();
         services.AddScoped<IPersonRoleService, PersonRoleService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IAuthService, AuthService>();
 
         return services;

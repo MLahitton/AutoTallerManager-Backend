@@ -60,30 +60,30 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    var bearerSecurityScheme = new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        Description = "Use: Bearer {token}"
-    };
-
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "AutoTallerManager API",
         Version = "v1"
     });
 
-    options.AddSecurityDefinition("Bearer", bearerSecurityScheme);
-
-    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        {
-            new OpenApiSecuritySchemeReference("Bearer", document, string.Empty),
-            []
-        }
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter JWT token only. Do not write Bearer."
+    });
+
+    options.AddSecurityRequirement(document =>
+    {
+        var requirement = new OpenApiSecurityRequirement();
+        requirement.Add(
+            new OpenApiSecuritySchemeReference("Bearer", document),
+            new List<string>());
+
+        return requirement;
     });
 });
 

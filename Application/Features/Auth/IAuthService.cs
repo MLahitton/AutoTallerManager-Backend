@@ -6,6 +6,8 @@ namespace Application.Features.Auth;
 
 public interface IAuthService
 {
+    Task<Result<AuthResponseDto>> RegisterClientAsync(RegisterClientRequest request, CancellationToken cancellationToken = default);
+
     Task<Result<AuthResponseDto>> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
 
     Task<Result<AuthResponseDto>> RefreshAsync(RefreshTokenRequest request, CancellationToken cancellationToken = default);
