@@ -9,6 +9,8 @@ using Application.Features.Departments;
 using Application.Features.DocumentTypes;
 using Application.Features.EmailDomains;
 using Application.Features.Genders;
+using Application.Features.InvoiceDetails;
+using Application.Features.Invoices;
 using Application.Features.InvoiceStatuses;
 using Application.Features.MechanicSpecialties;
 using Application.Features.MechanicAssignments;
@@ -58,6 +60,8 @@ public static class DependencyInjection
         services.AddScoped<IPaymentMethodService, PaymentMethodService>();
         services.AddScoped<IPaymentStatusService, PaymentStatusService>();
         services.AddScoped<IInvoiceStatusService, InvoiceStatusService>();
+        services.AddScoped<IInvoiceService, InvoiceService>();
+        services.AddScoped<IInvoiceDetailService, InvoiceDetailService>();
         services.AddScoped<IOrderStatusService, OrderStatusService>();
         services.AddScoped<ICardTypeService, CardTypeService>();
         services.AddScoped<IAuditActionTypeService, AuditActionTypeService>();
