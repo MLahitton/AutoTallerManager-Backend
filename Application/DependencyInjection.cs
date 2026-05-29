@@ -36,6 +36,7 @@ using Application.Features.Persons;
 using Application.Features.PersonRoles;
 using Application.Features.Roles;
 using Application.Features.ServiceOrders;
+using Application.Features.ServiceOrderWorkflow;
 using Application.Features.ServiceTypes;
 using Application.Features.StreetTypes;
 using Application.Features.Staff;
@@ -47,6 +48,7 @@ using Application.Features.VehicleModels;
 using Application.Features.VehicleOwnerHistories;
 using Application.Features.VehicleTypes;
 using Application.Features.Vehicles;
+using Application.Features.WorkshopIntake;
 using Application.Features.Users;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -83,6 +85,8 @@ public static class DependencyInjection
         services.AddScoped<IOrderStatusHistoryService, OrderStatusHistoryService>();
         services.AddScoped<IServiceTypeService, ServiceTypeService>();
         services.AddScoped<IServiceOrderService, ServiceOrderService>();
+        services.AddScoped<IServiceOrderWorkflowService, ServiceOrderWorkflowService>();
+        services.AddScoped<IWorkshopIntakeService, WorkshopIntakeService>();
         services.AddScoped<IVehicleEntryInventoryService, VehicleEntryInventoryService>();
         services.AddScoped<ISupplierService, SupplierService>();
         services.AddScoped<IPartCategoryService, PartCategoryService>();
