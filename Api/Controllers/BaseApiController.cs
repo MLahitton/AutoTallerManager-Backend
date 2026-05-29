@@ -38,7 +38,7 @@ public abstract class BaseApiController : ControllerBase
             return NotFound(body);
         }
 
-        if (EndsWithAny(error.Code, "Required", "TooShort", "TooLong", "Invalid", "Validation"))
+        if (EndsWithAny(error.Code, "Required", "TooShort", "TooLong", "Invalid", "Validation", "Expired", "InvalidCredentials"))
         {
             return BadRequest(body);
         }

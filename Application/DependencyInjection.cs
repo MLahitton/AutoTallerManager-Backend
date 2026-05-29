@@ -1,4 +1,5 @@
 using Application.Common.Security;
+using Application.Features.Auth;
 using Application.Features.AuditActionTypes;
 using Application.Features.Addresses;
 using Application.Features.CardTypes;
@@ -35,6 +36,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
+        services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
 
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IDocumentTypeService, DocumentTypeService>();
@@ -63,6 +65,7 @@ public static class DependencyInjection
         services.AddScoped<IPersonPhoneService, PersonPhoneService>();
         services.AddScoped<IPersonRoleService, PersonRoleService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IAuthService, AuthService>();
 
         return services;
     }
