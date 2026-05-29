@@ -39,6 +39,7 @@ using Application.Features.PersonRoles;
 using Application.Features.Roles;
 using Application.Features.ServiceOrders;
 using Application.Features.ServiceOrderWorkflow;
+using Application.Features.ServiceExecution;
 using Application.Features.ServiceTypes;
 using Application.Features.StreetTypes;
 using Application.Features.Staff;
@@ -88,6 +89,7 @@ public static class DependencyInjection
         services.AddScoped<IServiceTypeService, ServiceTypeService>();
         services.AddScoped<IServiceOrderService, ServiceOrderService>();
         services.AddScoped<IServiceOrderWorkflowService, ServiceOrderWorkflowService>();
+        services.AddScoped<IServiceExecutionService, ServiceExecutionService>();
         services.AddScoped<IWorkshopIntakeService, WorkshopIntakeService>();
         services.AddScoped<IVehicleEntryInventoryService, VehicleEntryInventoryService>();
         services.AddScoped<ISupplierService, SupplierService>();
