@@ -3,6 +3,7 @@ using Application.Features.Account;
 using Application.Features.Auth;
 using Application.Features.AuditActionTypes;
 using Application.Features.Audits;
+using Application.Features.AuditQueries;
 using Application.Features.Addresses;
 using Application.Features.CardTypes;
 using Application.Features.Catalogs;
@@ -11,6 +12,7 @@ using Application.Features.ClientVehicleFlows;
 using Application.Features.Countries;
 using Application.Features.Departments;
 using Application.Features.DocumentTypes;
+using Application.Features.Dashboards;
 using Application.Features.EmailDomains;
 using Application.Features.Genders;
 using Application.Features.InvoiceDetails;
@@ -40,6 +42,8 @@ using Application.Features.PersonPhones;
 using Application.Features.Persons;
 using Application.Features.PersonRoles;
 using Application.Features.Roles;
+using Application.Features.Reports;
+using Application.Features.Search;
 using Application.Features.ServiceOrders;
 using Application.Features.ServiceOrderWorkflow;
 using Application.Features.ServiceExecution;
@@ -85,6 +89,7 @@ public static class DependencyInjection
         services.AddScoped<ICardTypeService, CardTypeService>();
         services.AddScoped<IAuditActionTypeService, AuditActionTypeService>();
         services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<IAuditQueryService, AuditQueryService>();
         services.AddScoped<IMechanicSpecialtyService, MechanicSpecialtyService>();
         services.AddScoped<IMechanicAssignmentService, MechanicAssignmentService>();
         services.AddScoped<IMechanicSpecialtyAssignmentService, MechanicSpecialtyAssignmentService>();
@@ -124,6 +129,9 @@ public static class DependencyInjection
         services.AddScoped<IStaffService, StaffService>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IClientVehicleFlowService, ClientVehicleFlowService>();
+        services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<ISearchService, SearchService>();
 
         return services;
     }
