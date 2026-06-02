@@ -4,6 +4,7 @@ public class VehicleSearchResultDto
 {
     public int VehicleId { get; set; }
     public string VIN { get; set; } = string.Empty;
+    public string Plate { get; set; } = string.Empty;
     public int ModelId { get; set; }
     public int VehicleTypeId { get; set; }
     public int Year { get; set; }

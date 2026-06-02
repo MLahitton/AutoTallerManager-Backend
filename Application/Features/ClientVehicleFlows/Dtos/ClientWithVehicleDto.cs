@@ -10,4 +10,5 @@ public class ClientWithVehicleDto
     public string? PrimaryEmail { get; set; }
     public string? PrimaryPhoneNumber { get; set; }
     public string VIN { get; set; } = string.Empty;
+    public string Plate { get; set; } = string.Empty;
 }

@@ -4,6 +4,7 @@ public class ServiceOrderFullDetailDto
 {
     public int ServiceOrderId { get; set; }
     public int VehicleId { get; set; }
+    public string VehiclePlate { get; set; } = string.Empty;
     public int OrderStatusId { get; set; }
     public DateTime EntryDate { get; set; }
     public DateTime? EstimatedDeliveryDate { get; set; }

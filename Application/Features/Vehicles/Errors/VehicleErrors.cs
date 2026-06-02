@@ -13,6 +13,9 @@ public static class VehicleErrors
     public static readonly Error VinInvalid = new("Vehicles.VinInvalid", "VIN format is invalid.");
     public static readonly Error VinTooLong = new("Vehicles.VinTooLong", "VIN cannot exceed 17 characters.");
     public static readonly Error VinAlreadyExists = new("Vehicles.VinAlreadyExists", "VIN already exists.");
+    public static readonly Error PlateRequired = new("Vehicles.PlateRequired", "Plate is required.");
+    public static readonly Error PlateInvalid = new("Vehicles.PlateInvalid", "Plate is invalid.");
+    public static readonly Error PlateAlreadyExists = new("Vehicles.PlateAlreadyExists", "Plate already exists for an active vehicle.");
     public static readonly Error YearInvalid = new("Vehicles.YearInvalid", "Year is invalid.");
     public static readonly Error ColorTooLong = new("Vehicles.ColorTooLong", "Color cannot exceed 30 characters.");
     public static readonly Error MileageInvalid = new("Vehicles.MileageInvalid", "Mileage must be greater than or equal to 0.");

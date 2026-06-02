@@ -4,13 +4,17 @@ using Application.Features.Vehicles.Dtos;
 using Application.Features.Vehicles.Errors;
 using Application.Features.Vehicles.Requests;
 using Domain.Entities;
+using System.Text.RegularExpressions;
 
 namespace Application.Features.Vehicles;
 
 public class VehicleService : IVehicleService
 {
     private const int VinLength = 17;
+    private const int PlateMinLength = 5;
+    private const int PlateMaxLength = 10;
     private const int ColorMaxLength = 30;
+    private static readonly Regex PlatePattern = new(@"^[A-Z0-9]+(?:-[A-Z0-9]+)*$", RegexOptions.CultureInvariant);
     private readonly IUnitOfWork _unitOfWork;
 
     public VehicleService(IUnitOfWork unitOfWork)
@@ -49,12 +53,13 @@ public class VehicleService : IVehicleService
         var modelId = request?.ModelId ?? 0;
         var vehicleTypeId = request?.VehicleTypeId ?? 0;
         var vin = NormalizeVin(request?.VIN);
+        var plate = NormalizePlate(request?.Plate);
         var year = request?.Year ?? 0;
         var color = NormalizeColor(request?.Color);
         var mileage = request?.Mileage ?? 0;
         var isActive = request?.IsActive ?? false;
 
-        var validationError = Validate(modelId, vehicleTypeId, vin, year, color, mileage);
+        var validationError = Validate(modelId, vehicleTypeId, vin, plate, year, color, mileage);
         if (validationError is not null)
         {
             return Result<VehicleDto>.Failure(validationError);
@@ -90,11 +95,21 @@ public class VehicleService : IVehicleService
             return Result<VehicleDto>.Failure(VehicleErrors.VinAlreadyExists);
         }
 
+        var plateAlreadyExists = await vehicleRepository.ExistsAsync(
+            x => x.Plate == plate && x.IsActive,
+            cancellationToken);
+
+        if (plateAlreadyExists)
+        {
+            return Result<VehicleDto>.Failure(VehicleErrors.PlateAlreadyExists);
+        }
+
         var vehicle = new Vehicle
         {
             ModelId = modelId,
             VehicleTypeId = vehicleTypeId,
             VIN = vin,
+            Plate = plate,
             Year = year,
             Color = color,
             Mileage = mileage,
@@ -120,12 +135,13 @@ public class VehicleService : IVehicleService
         var modelId = request?.ModelId ?? 0;
         var vehicleTypeId = request?.VehicleTypeId ?? 0;
         var vin = NormalizeVin(request?.VIN);
+        var plate = NormalizePlate(request?.Plate);
         var year = request?.Year ?? 0;
         var color = NormalizeColor(request?.Color);
         var mileage = request?.Mileage ?? 0;
         var isActive = request?.IsActive ?? false;
 
-        var validationError = Validate(modelId, vehicleTypeId, vin, year, color, mileage);
+        var validationError = Validate(modelId, vehicleTypeId, vin, plate, year, color, mileage);
         if (validationError is not null)
         {
             return Result<VehicleDto>.Failure(validationError);
@@ -160,9 +176,19 @@ public class VehicleService : IVehicleService
             return Result<VehicleDto>.Failure(VehicleErrors.VinAlreadyExists);
         }
 
+        var plateAlreadyExists = await vehicleRepository.ExistsAsync(
+            x => x.Plate == plate && x.IsActive && x.VehicleId != id,
+            cancellationToken);
+
+        if (plateAlreadyExists)
+        {
+            return Result<VehicleDto>.Failure(VehicleErrors.PlateAlreadyExists);
+        }
+
         vehicle.ModelId = modelId;
         vehicle.VehicleTypeId = vehicleTypeId;
         vehicle.VIN = vin;
+        vehicle.Plate = plate;
         vehicle.Year = year;
         vehicle.Color = color;
         vehicle.Mileage = mileage;
@@ -218,6 +244,7 @@ public class VehicleService : IVehicleService
             ModelId = vehicle.ModelId,
             VehicleTypeId = vehicle.VehicleTypeId,
             VIN = vehicle.VIN,
+            Plate = vehicle.Plate,
             Year = vehicle.Year,
             Color = vehicle.Color,
             Mileage = vehicle.Mileage,
@@ -230,13 +257,18 @@ public class VehicleService : IVehicleService
         return (vin ?? string.Empty).Trim().ToUpperInvariant();
     }
 
+    private static string NormalizePlate(string? plate)
+    {
+        return (plate ?? string.Empty).Trim().ToUpperInvariant();
+    }
+
     private static string? NormalizeColor(string? color)
     {
         var normalized = (color ?? string.Empty).Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
-    private static Error? Validate(int modelId, int vehicleTypeId, string vin, int year, string? color, int mileage)
+    private static Error? Validate(int modelId, int vehicleTypeId, string vin, string plate, int year, string? color, int mileage)
     {
         if (modelId <= 0)
         {
@@ -261,6 +293,21 @@ public class VehicleService : IVehicleService
         if (vin.Length != VinLength || !vin.All(char.IsLetterOrDigit))
         {
             return VehicleErrors.VinInvalid;
+        }
+
+        if (string.IsNullOrWhiteSpace(plate))
+        {
+            return VehicleErrors.PlateRequired;
+        }
+
+        if (plate.Length < PlateMinLength || plate.Length > PlateMaxLength)
+        {
+            return VehicleErrors.PlateInvalid;
+        }
+
+        if (!PlatePattern.IsMatch(plate))
+        {
+            return VehicleErrors.PlateInvalid;
         }
 
         var maxYear = DateTime.UtcNow.Year + 1;

@@ -4,6 +4,7 @@ using Application.Features.ClientVehicleFlows.Dtos;
 using Application.Features.ClientVehicleFlows.Errors;
 using Application.Features.ClientVehicleFlows.Requests;
 using Domain.Entities;
+using System.Text.RegularExpressions;
 
 namespace Application.Features.ClientVehicleFlows;
 
@@ -18,6 +19,9 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
     private const int PhoneNumberMaxLength = 20;
     private const int VinLength = 17;
     private const int ColorMaxLength = 30;
+    private const int PlateMinLength = 5;
+    private const int PlateMaxLength = 10;
+    private static readonly Regex PlatePattern = new(@"^[A-Z0-9]+(?:-[A-Z0-9]+)*$", RegexOptions.CultureInvariant);
 
     private const string ClientRoleName = "Client";
 
@@ -52,6 +56,7 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
         var modelId = request?.ModelId ?? 0;
         var vehicleTypeId = request?.VehicleTypeId ?? 0;
         var vin = NormalizeVin(request?.VIN);
+        var plate = NormalizePlate(request?.Plate);
         var year = request?.Year ?? 0;
         var color = NormalizeOptionalText(request?.Color);
         var mileage = request?.Mileage ?? 0;
@@ -74,6 +79,7 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
             modelId,
             vehicleTypeId,
             vin,
+            plate,
             year,
             color,
             mileage);
@@ -236,6 +242,15 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
             return Result<ClientWithVehicleDto>.Failure(ClientVehicleFlowErrors.VinAlreadyExists);
         }
 
+        var plateAlreadyExists = await vehicleRepository.ExistsAsync(
+            x => x.Plate == plate && x.IsActive,
+            cancellationToken);
+
+        if (plateAlreadyExists)
+        {
+            return Result<ClientWithVehicleDto>.Failure(ClientVehicleFlowErrors.PlateAlreadyExists);
+        }
+
         var person = new Person
         {
             DocumentTypeId = documentTypeId,
@@ -309,6 +324,7 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
             ModelId = modelId,
             VehicleTypeId = vehicleTypeId,
             VIN = vin,
+            Plate = plate,
             Year = year,
             Color = color,
             Mileage = mileage,
@@ -338,7 +354,8 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
             FullName = BuildFullName(person.FirstName, person.MiddleName, person.LastName, person.SecondLastName),
             PrimaryEmail = emailProvided ? normalizedEmail : null,
             PrimaryPhoneNumber = phoneNumberProvided ? phoneNumber : null,
-            VIN = vehicle.VIN
+            VIN = vehicle.VIN,
+            Plate = vehicle.Plate
         });
     }
 
@@ -356,11 +373,12 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
         var modelId = request?.ModelId ?? 0;
         var vehicleTypeId = request?.VehicleTypeId ?? 0;
         var vin = NormalizeVin(request?.VIN);
+        var plate = NormalizePlate(request?.Plate);
         var year = request?.Year ?? 0;
         var color = NormalizeOptionalText(request?.Color);
         var mileage = request?.Mileage ?? 0;
 
-        var vehicleValidationError = ValidateVehicleInput(modelId, vehicleTypeId, vin, year, color, mileage);
+        var vehicleValidationError = ValidateVehicleInput(modelId, vehicleTypeId, vin, plate, year, color, mileage);
         if (vehicleValidationError is not null)
         {
             return Result<ClientVehicleDto>.Failure(vehicleValidationError);
@@ -396,11 +414,21 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
             return Result<ClientVehicleDto>.Failure(ClientVehicleFlowErrors.VinAlreadyExists);
         }
 
+        var plateAlreadyExists = await vehicleRepository.ExistsAsync(
+            x => x.Plate == plate && x.IsActive,
+            cancellationToken);
+
+        if (plateAlreadyExists)
+        {
+            return Result<ClientVehicleDto>.Failure(ClientVehicleFlowErrors.PlateAlreadyExists);
+        }
+
         var vehicle = new Vehicle
         {
             ModelId = modelId,
             VehicleTypeId = vehicleTypeId,
             VIN = vin,
+            Plate = plate,
             Year = year,
             Color = color,
             Mileage = mileage,
@@ -706,6 +734,7 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
             ModelId = vehicle.ModelId,
             VehicleTypeId = vehicle.VehicleTypeId,
             VIN = vehicle.VIN,
+            Plate = vehicle.Plate,
             Year = vehicle.Year,
             Color = vehicle.Color,
             Mileage = vehicle.Mileage,
@@ -733,6 +762,7 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
         int modelId,
         int vehicleTypeId,
         string vin,
+        string plate,
         int year,
         string? color,
         int mileage)
@@ -758,7 +788,7 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
             return personValidationError;
         }
 
-        return ValidateVehicleInput(modelId, vehicleTypeId, vin, year, color, mileage);
+        return ValidateVehicleInput(modelId, vehicleTypeId, vin, plate, year, color, mileage);
     }
 
     private static Error? ValidatePersonInput(
@@ -872,6 +902,7 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
         int modelId,
         int vehicleTypeId,
         string vin,
+        string plate,
         int year,
         string? color,
         int mileage)
@@ -894,6 +925,21 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
         if (vin.Length != VinLength || !vin.All(char.IsLetterOrDigit))
         {
             return ClientVehicleFlowErrors.VinInvalid;
+        }
+
+        if (string.IsNullOrWhiteSpace(plate))
+        {
+            return ClientVehicleFlowErrors.PlateRequired;
+        }
+
+        if (plate.Length < PlateMinLength || plate.Length > PlateMaxLength)
+        {
+            return ClientVehicleFlowErrors.PlateInvalid;
+        }
+
+        if (!PlatePattern.IsMatch(plate))
+        {
+            return ClientVehicleFlowErrors.PlateInvalid;
         }
 
         var maxYear = DateTime.UtcNow.Year + 1;
@@ -947,6 +993,11 @@ public class ClientVehicleFlowService : IClientVehicleFlowService
     private static string NormalizeVin(string? vin)
     {
         return (vin ?? string.Empty).Trim().ToUpperInvariant();
+    }
+
+    private static string NormalizePlate(string? plate)
+    {
+        return (plate ?? string.Empty).Trim().ToUpperInvariant();
     }
 
     private static bool TrySplitEmail(string email, out string emailUser, out string domain)

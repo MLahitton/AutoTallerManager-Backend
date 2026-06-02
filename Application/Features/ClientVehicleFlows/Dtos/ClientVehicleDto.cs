@@ -6,6 +6,7 @@ public class ClientVehicleDto
     public int ModelId { get; set; }
     public int VehicleTypeId { get; set; }
     public string VIN { get; set; } = string.Empty;
+    public string Plate { get; set; } = string.Empty;
     public int Year { get; set; }
     public string? Color { get; set; }
     public int Mileage { get; set; }

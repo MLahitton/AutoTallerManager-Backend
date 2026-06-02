@@ -52,6 +52,8 @@ public class ServiceOrderWorkflowService : IServiceOrderWorkflowService
             return Result<ServiceOrderFullDetailDto>.Failure(ServiceOrderWorkflowErrors.NotFound);
         }
 
+        var vehicle = await _unitOfWork.Repository<Vehicle>().GetByIdAsync(serviceOrder.VehicleId, cancellationToken);
+
         var roleSet = new HashSet<string>(currentRoles ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
 
         if (roleSet.Contains(ClientRoleName))
@@ -182,6 +184,7 @@ public class ServiceOrderWorkflowService : IServiceOrderWorkflowService
         {
             ServiceOrderId = serviceOrder.ServiceOrderId,
             VehicleId = serviceOrder.VehicleId,
+            VehiclePlate = vehicle?.Plate ?? string.Empty,
             OrderStatusId = serviceOrder.OrderStatusId,
             EntryDate = serviceOrder.EntryDate,
             EstimatedDeliveryDate = serviceOrder.EstimatedDeliveryDate,

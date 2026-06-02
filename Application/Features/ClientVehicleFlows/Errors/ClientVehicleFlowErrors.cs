@@ -35,6 +35,9 @@ public static class ClientVehicleFlowErrors
     public static readonly Error VehicleModelNotFound = new("ClientVehicleFlows.VehicleModelNotFound", "Vehicle model was not found.");
     public static readonly Error VehicleTypeIdInvalid = new("ClientVehicleFlows.VehicleTypeIdInvalid", "VehicleTypeId must be greater than 0.");
     public static readonly Error VehicleTypeNotFound = new("ClientVehicleFlows.VehicleTypeNotFound", "Vehicle type was not found.");
+    public static readonly Error PlateRequired = new("ClientVehicleFlows.PlateRequired", "Plate is required.");
+    public static readonly Error PlateInvalid = new("ClientVehicleFlows.PlateInvalid", "Plate is invalid.");
+    public static readonly Error PlateAlreadyExists = new("ClientVehicleFlows.PlateAlreadyExists", "Plate already exists for an active vehicle.");
     public static readonly Error VinRequired = new("ClientVehicleFlows.VinRequired", "VIN is required.");
     public static readonly Error VinInvalid = new("ClientVehicleFlows.VinInvalid", "VIN format is invalid.");
     public static readonly Error VinAlreadyExists = new("ClientVehicleFlows.VinAlreadyExists", "VIN already exists.");

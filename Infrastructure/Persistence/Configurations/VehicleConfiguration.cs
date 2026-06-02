@@ -19,6 +19,10 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
             .IsRequired()
             .HasMaxLength(17);
 
+        builder.Property(x => x.Plate)
+            .IsRequired()
+            .HasMaxLength(10);
+
         builder.Property(x => x.Year)
             .IsRequired()
             .HasColumnType("year");
@@ -36,6 +40,9 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
             .HasDefaultValue(true);
 
         builder.HasIndex(x => x.VIN)
+            .IsUnique();
+
+        builder.HasIndex(x => x.Plate)
             .IsUnique();
 
         builder.HasOne(x => x.Model)

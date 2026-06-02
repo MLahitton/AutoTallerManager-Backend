@@ -163,6 +163,7 @@ public class SearchService : ISearchService
         var result = vehicles
             .Where(x =>
                 Contains(x.VIN, normalizedTerm) ||
+                Contains(x.Plate, normalizedTerm) ||
                 Contains(x.Year.ToString(), normalizedTerm) ||
                 Contains(x.Color, normalizedTerm) ||
                 Contains(x.ModelId.ToString(), normalizedTerm) ||
@@ -173,6 +174,7 @@ public class SearchService : ISearchService
             {
                 VehicleId = x.VehicleId,
                 VIN = x.VIN,
+                Plate = x.Plate,
                 ModelId = x.ModelId,
                 VehicleTypeId = x.VehicleTypeId,
                 Year = x.Year,
