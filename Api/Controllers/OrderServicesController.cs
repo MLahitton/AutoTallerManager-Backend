@@ -1,7 +1,8 @@
+using System.Security.Claims;
 using Application.Features.OrderServices;
 using Application.Features.OrderServices.Requests;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 
@@ -36,7 +37,12 @@ public class OrderServicesController : BaseApiController
         [FromBody] CreateOrderServiceRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _orderServiceService.CreateAsync(request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _orderServiceService.CreateAsync(request, currentUserId, cancellationToken);
         return FromResult(result, orderService => CreatedAtAction(nameof(GetById), new { id = orderService.OrderServiceId }, orderService));
     }
 
@@ -46,14 +52,32 @@ public class OrderServicesController : BaseApiController
         [FromBody] UpdateOrderServiceRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _orderServiceService.UpdateAsync(id, request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _orderServiceService.UpdateAsync(id, request, currentUserId, cancellationToken);
         return FromResult(result, orderService => Ok(orderService));
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
-        var result = await _orderServiceService.DeleteAsync(id, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _orderServiceService.DeleteAsync(id, currentUserId, cancellationToken);
         return FromResult(result, () => NoContent());
+    }
+
+    private bool TryGetCurrentUserId(out int currentUserId)
+    {
+        currentUserId = 0;
+        var userIdClaim = User.FindFirstValue("userId");
+
+        return int.TryParse(userIdClaim, out currentUserId) && currentUserId > 0;
     }
 }

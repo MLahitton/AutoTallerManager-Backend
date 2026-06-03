@@ -1,5 +1,4 @@
 using Application.Features.AuditActionTypes;
-using Application.Features.AuditActionTypes.Requests;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 
@@ -29,31 +28,5 @@ public class AuditActionTypesController : BaseApiController
     {
         var result = await _auditActionTypeService.GetByIdAsync(id, cancellationToken);
         return FromResult(result, auditActionType => Ok(auditActionType));
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Create(
-        [FromBody] CreateAuditActionTypeRequest request,
-        CancellationToken cancellationToken)
-    {
-        var result = await _auditActionTypeService.CreateAsync(request, cancellationToken);
-        return FromResult(result, auditActionType => CreatedAtAction(nameof(GetById), new { id = auditActionType.AuditActionTypeId }, auditActionType));
-    }
-
-    [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(
-        int id,
-        [FromBody] UpdateAuditActionTypeRequest request,
-        CancellationToken cancellationToken)
-    {
-        var result = await _auditActionTypeService.UpdateAsync(id, request, cancellationToken);
-        return FromResult(result, auditActionType => Ok(auditActionType));
-    }
-
-    [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
-    {
-        var result = await _auditActionTypeService.DeleteAsync(id, cancellationToken);
-        return FromResult(result, () => NoContent());
     }
 }

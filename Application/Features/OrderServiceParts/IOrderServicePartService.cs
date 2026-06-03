@@ -12,12 +12,17 @@ public interface IOrderServicePartService
 
     Task<Result<OrderServicePartDto>> CreateAsync(
         CreateOrderServicePartRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default);
 
     Task<Result<OrderServicePartDto>> UpdateAsync(
         int id,
         UpdateOrderServicePartRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default);
 
-    Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task<Result> DeleteAsync(
+        int id,
+        int currentUserId,
+        CancellationToken cancellationToken = default);
 }

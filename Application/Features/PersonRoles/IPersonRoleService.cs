@@ -10,9 +10,9 @@ public interface IPersonRoleService
 
     Task<Result<PersonRoleDto>> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
-    Task<Result<PersonRoleDto>> CreateAsync(CreatePersonRoleRequest request, CancellationToken cancellationToken = default);
+    Task<Result<PersonRoleDto>> CreateAsync(CreatePersonRoleRequest request, int currentUserId, CancellationToken cancellationToken = default);
 
-    Task<Result<PersonRoleDto>> UpdateAsync(int id, UpdatePersonRoleRequest request, CancellationToken cancellationToken = default);
+    Task<Result<PersonRoleDto>> UpdateAsync(int id, UpdatePersonRoleRequest request, int currentUserId, CancellationToken cancellationToken = default);
 
-    Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task<Result> DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken = default);
 }

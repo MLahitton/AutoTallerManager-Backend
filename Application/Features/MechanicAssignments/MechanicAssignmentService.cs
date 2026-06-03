@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.MechanicAssignments.Dtos;
@@ -12,12 +13,18 @@ public class MechanicAssignmentService : IMechanicAssignmentService
     private const string MechanicRoleName = "Mechanic";
     private const string CancelledStatusName = "Cancelled";
     private const string VoidedStatusName = "Voided";
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string DeleteAuditActionTypeName = "DELETE";
+    private const string MechanicAssignmentEntityName = "MechanicAssignment";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public MechanicAssignmentService(IUnitOfWork unitOfWork)
+    public MechanicAssignmentService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<IReadOnlyList<MechanicAssignmentDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -48,6 +55,7 @@ public class MechanicAssignmentService : IMechanicAssignmentService
 
     public async Task<Result<MechanicAssignmentDto>> CreateAsync(
         CreateMechanicAssignmentRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         var orderServiceId = request?.OrderServiceId ?? 0;
@@ -148,15 +156,29 @@ public class MechanicAssignmentService : IMechanicAssignmentService
             SpecialtyId = specialtyId
         };
 
-        await mechanicAssignmentRepository.AddAsync(mechanicAssignment, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+        {
+            await mechanicAssignmentRepository.AddAsync(mechanicAssignment, transactionCancellationToken);
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        return Result<MechanicAssignmentDto>.Success(MapToDto(mechanicAssignment));
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                MechanicAssignmentEntityName,
+                mechanicAssignment.MechanicAssignmentId,
+                $"Mechanic {mechanicPersonId} assigned to order service {orderServiceId}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<MechanicAssignmentDto>.Success(MapToDto(mechanicAssignment));
+        }, cancellationToken);
     }
 
     public async Task<Result<MechanicAssignmentDto>> UpdateAsync(
         int id,
         UpdateMechanicAssignmentRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         var mechanicAssignmentRepository = _unitOfWork.Repository<MechanicAssignment>();
@@ -262,12 +284,24 @@ public class MechanicAssignmentService : IMechanicAssignmentService
         mechanicAssignment.SpecialtyId = specialtyId;
 
         mechanicAssignmentRepository.Update(mechanicAssignment);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            MechanicAssignmentEntityName,
+            mechanicAssignment.MechanicAssignmentId,
+            $"Mechanic assignment {mechanicAssignment.MechanicAssignmentId} updated for order service {orderServiceId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<MechanicAssignmentDto>.Success(MapToDto(mechanicAssignment));
     }
 
-    public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteAsync(
+        int id,
+        int currentUserId,
+        CancellationToken cancellationToken = default)
     {
         var mechanicAssignmentRepository = _unitOfWork.Repository<MechanicAssignment>();
         var mechanicAssignment = await mechanicAssignmentRepository.GetByIdAsync(id, cancellationToken);
@@ -278,6 +312,15 @@ public class MechanicAssignmentService : IMechanicAssignmentService
         }
 
         mechanicAssignmentRepository.Remove(mechanicAssignment);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            DeleteAuditActionTypeName,
+            MechanicAssignmentEntityName,
+            mechanicAssignment.MechanicAssignmentId,
+            $"Mechanic assignment {mechanicAssignment.MechanicAssignmentId} removed from order service {mechanicAssignment.OrderServiceId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

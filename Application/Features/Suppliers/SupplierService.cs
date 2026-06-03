@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.Suppliers.Dtos;
@@ -13,12 +14,17 @@ public class SupplierService : ISupplierService
     private const int TaxIdMaxLength = 30;
     private const int PhoneMaxLength = 30;
     private const int EmailMaxLength = 120;
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string DeleteAuditActionTypeName = "DELETE";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public SupplierService(IUnitOfWork unitOfWork)
+    public SupplierService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<IReadOnlyList<SupplierDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -47,7 +53,7 @@ public class SupplierService : ISupplierService
         return Result<SupplierDto>.Success(MapToDto(supplier));
     }
 
-    public async Task<Result<SupplierDto>> CreateAsync(CreateSupplierRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<SupplierDto>> CreateAsync(CreateSupplierRequest request, int currentUserId, CancellationToken cancellationToken = default)
     {
         var name = NormalizeRequiredText(request?.Name);
         var taxId = NormalizeOptionalText(request?.TaxId);
@@ -84,13 +90,26 @@ public class SupplierService : ISupplierService
             IsActive = isActive
         };
 
-        await supplierRepository.AddAsync(supplier, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+        {
+            await supplierRepository.AddAsync(supplier, transactionCancellationToken);
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        return Result<SupplierDto>.Success(MapToDto(supplier));
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                "Suppliers",
+                supplier.SupplierId,
+                $"Supplier {supplier.SupplierId} created. Name: {supplier.Name}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<SupplierDto>.Success(MapToDto(supplier));
+        }, cancellationToken);
     }
 
-    public async Task<Result<SupplierDto>> UpdateAsync(int id, UpdateSupplierRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<SupplierDto>> UpdateAsync(int id, UpdateSupplierRequest request, int currentUserId, CancellationToken cancellationToken = default)
     {
         var supplierRepository = _unitOfWork.Repository<Supplier>();
         var supplier = await supplierRepository.GetByIdAsync(id, cancellationToken);
@@ -131,12 +150,20 @@ public class SupplierService : ISupplierService
         supplier.IsActive = isActive;
 
         supplierRepository.Update(supplier);
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            "Suppliers",
+            supplier.SupplierId,
+            $"Supplier {supplier.SupplierId} updated. Name: {supplier.Name}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<SupplierDto>.Success(MapToDto(supplier));
     }
 
-    public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken = default)
     {
         var supplierRepository = _unitOfWork.Repository<Supplier>();
         var supplier = await supplierRepository.GetByIdAsync(id, cancellationToken);
@@ -156,7 +183,17 @@ public class SupplierService : ISupplierService
             return Result.Failure(SupplierErrors.InUse);
         }
 
+        var supplierName = supplier.Name;
+
         supplierRepository.Remove(supplier);
+        await _auditLogger.LogAsync(
+            currentUserId,
+            DeleteAuditActionTypeName,
+            "Suppliers",
+            supplier.SupplierId,
+            $"Supplier {supplier.SupplierId} deleted. Name: {supplierName}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

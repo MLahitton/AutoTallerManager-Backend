@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Application.Features.Staff;
 using Application.Features.Staff.Requests;
 using Microsoft.AspNetCore.Authorization;
@@ -22,7 +23,20 @@ public class StaffController : BaseApiController
         [FromBody] RegisterStaffRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _staffService.RegisterStaffAsync(request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _staffService.RegisterStaffAsync(request, currentUserId, cancellationToken);
         return FromResult(result, staffUser => Ok(staffUser));
+    }
+
+    private bool TryGetCurrentUserId(out int currentUserId)
+    {
+        currentUserId = 0;
+        var userIdClaim = User.FindFirstValue("userId");
+
+        return int.TryParse(userIdClaim, out currentUserId) && currentUserId > 0;
     }
 }

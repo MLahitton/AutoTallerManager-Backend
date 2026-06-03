@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Application.Features.InvoiceBusiness;
 using Application.Features.InvoiceBusiness.Requests;
 using Microsoft.AspNetCore.Authorization;
@@ -23,7 +24,12 @@ public class InvoiceBusinessController : BaseApiController
         [FromBody] GenerateInvoiceFromServiceOrderRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _invoiceBusinessService.GenerateFromServiceOrderAsync(serviceOrderId, request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _invoiceBusinessService.GenerateFromServiceOrderAsync(serviceOrderId, request, currentUserId, cancellationToken);
         return FromResult(result, invoice => Ok(invoice));
     }
 
@@ -31,7 +37,12 @@ public class InvoiceBusinessController : BaseApiController
     [Authorize(Roles = "Admin,Receptionist")]
     public async Task<IActionResult> Recalculate(int id, CancellationToken cancellationToken)
     {
-        var result = await _invoiceBusinessService.RecalculateAsync(id, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _invoiceBusinessService.RecalculateAsync(id, currentUserId, cancellationToken);
         return FromResult(result, invoice => Ok(invoice));
     }
 
@@ -39,7 +50,12 @@ public class InvoiceBusinessController : BaseApiController
     [Authorize(Roles = "Admin,Receptionist")]
     public async Task<IActionResult> Issue(int id, CancellationToken cancellationToken)
     {
-        var result = await _invoiceBusinessService.IssueAsync(id, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _invoiceBusinessService.IssueAsync(id, currentUserId, cancellationToken);
         return FromResult(result, invoice => Ok(invoice));
     }
 
@@ -50,7 +66,20 @@ public class InvoiceBusinessController : BaseApiController
         [FromBody] CancelInvoiceRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _invoiceBusinessService.CancelAsync(id, request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _invoiceBusinessService.CancelAsync(id, request, currentUserId, cancellationToken);
         return FromResult(result, invoice => Ok(invoice));
+    }
+
+    private bool TryGetCurrentUserId(out int currentUserId)
+    {
+        currentUserId = 0;
+        var userIdClaim = User.FindFirstValue("userId");
+
+        return int.TryParse(userIdClaim, out currentUserId) && currentUserId > 0;
     }
 }

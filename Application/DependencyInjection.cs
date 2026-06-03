@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Security;
 using Application.Features.Account;
 using Application.Features.AdminMechanics;
@@ -93,6 +94,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditActionTypeService, AuditActionTypeService>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IAuditQueryService, AuditQueryService>();
+        services.AddScoped<IAuditLogger, AuditLogger>();
         services.AddScoped<IMechanicSpecialtyService, MechanicSpecialtyService>();
         services.AddScoped<IMechanicAssignmentService, MechanicAssignmentService>();
         services.AddScoped<IMechanicSpecialtyAssignmentService, MechanicSpecialtyAssignmentService>();

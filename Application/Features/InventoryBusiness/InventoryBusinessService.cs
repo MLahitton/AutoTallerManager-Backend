@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.InventoryBusiness.Dtos;
@@ -10,20 +11,38 @@ namespace Application.Features.InventoryBusiness;
 public class InventoryBusinessService : IInventoryBusinessService
 {
     private const int CancellationReasonMaxLength = 500;
+    private const string CreateAuditActionTypeName = "CREATE";
     private const string UpdateAuditActionTypeName = "UPDATE";
     private const string CancelAuditActionTypeName = "CANCEL";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public InventoryBusinessService(IUnitOfWork unitOfWork)
+    public InventoryBusinessService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<InventoryPurchaseResultDto>> RegisterPurchaseAsync(
         RegisterInventoryPurchaseRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
+        if (currentUserId <= 0)
+        {
+            return Result<InventoryPurchaseResultDto>.Failure(InventoryBusinessErrors.CurrentUserInvalid);
+        }
+
+        var userExists = await _unitOfWork.Repository<User>().ExistsAsync(
+            x => x.UserId == currentUserId,
+            cancellationToken);
+
+        if (!userExists)
+        {
+            return Result<InventoryPurchaseResultDto>.Failure(InventoryBusinessErrors.CurrentUserInvalid);
+        }
+
         var supplierId = request?.SupplierId ?? 0;
         var purchaseDate = request?.PurchaseDate;
         var details = request?.Details;
@@ -79,45 +98,58 @@ public class InventoryBusinessService : IInventoryBusinessService
         var purchaseRepository = _unitOfWork.Repository<PartPurchase>();
         var purchaseDetailRepository = _unitOfWork.Repository<PartPurchaseDetail>();
 
-        await purchaseRepository.AddAsync(purchase, cancellationToken);
-
-        var createdDetails = new List<PartPurchaseDetail>(detailList.Count);
-        var total = 0m;
-
-        foreach (var detail in detailList)
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
         {
-            var part = partById[detail.PartId];
-            part.Stock += detail.Quantity;
-            partRepository.Update(part);
+            await purchaseRepository.AddAsync(purchase, transactionCancellationToken);
 
-            var purchaseDetail = new PartPurchaseDetail
+            var createdDetails = new List<PartPurchaseDetail>(detailList.Count);
+            var total = 0m;
+
+            foreach (var detail in detailList)
             {
-                PartPurchase = purchase,
-                PartId = detail.PartId,
-                Quantity = detail.Quantity,
-                UnitPrice = detail.UnitPrice
-            };
+                var part = partById[detail.PartId];
+                part.Stock += detail.Quantity;
+                partRepository.Update(part);
 
-            total += CalculateSubtotal(detail.Quantity, detail.UnitPrice);
-            createdDetails.Add(purchaseDetail);
-            await purchaseDetailRepository.AddAsync(purchaseDetail, cancellationToken);
-        }
+                var purchaseDetail = new PartPurchaseDetail
+                {
+                    PartPurchase = purchase,
+                    PartId = detail.PartId,
+                    Quantity = detail.Quantity,
+                    UnitPrice = detail.UnitPrice
+                };
 
-        purchase.Total = total;
+                total += CalculateSubtotal(detail.Quantity, detail.UnitPrice);
+                createdDetails.Add(purchaseDetail);
+                await purchaseDetailRepository.AddAsync(purchaseDetail, transactionCancellationToken);
+            }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            purchase.Total = total;
 
-        return Result<InventoryPurchaseResultDto>.Success(new InventoryPurchaseResultDto
-        {
-            PartPurchaseId = purchase.PartPurchaseId,
-            SupplierId = purchase.SupplierId,
-            PurchaseDate = purchase.PurchaseDate,
-            Total = purchase.Total,
-            Details = createdDetails
-                .OrderBy(x => x.PartPurchaseDetailId)
-                .Select(MapPurchaseDetailResult)
-                .ToList()
-        });
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                "PartPurchase",
+                purchase.PartPurchaseId,
+                $"Purchase {purchase.PartPurchaseId} registered for supplier {supplierId}. Total: {total}. Details: {detailList.Count}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<InventoryPurchaseResultDto>.Success(new InventoryPurchaseResultDto
+            {
+                PartPurchaseId = purchase.PartPurchaseId,
+                SupplierId = purchase.SupplierId,
+                PurchaseDate = purchase.PurchaseDate,
+                Total = purchase.Total,
+                Details = createdDetails
+                    .OrderBy(x => x.PartPurchaseDetailId)
+                    .Select(MapPurchaseDetailResult)
+                    .ToList()
+            });
+        }, cancellationToken);
     }
 
     public async Task<Result<InventoryPurchaseCancellationResultDto>> CancelPurchaseAsync(
@@ -229,11 +261,12 @@ public class InventoryBusinessService : IInventoryBusinessService
         purchase.CancelledByUserId = currentUserId;
         purchaseRepository.Update(purchase);
 
-        await TryCreatePurchaseCancellationAuditAsync(
+        await _auditLogger.LogAsync(
             currentUserId,
+            CancelAuditActionTypeName,
+            "PartPurchase",
             purchase.PartPurchaseId,
-            reason,
-            affectedParts.Count,
+            $"Purchase {purchase.PartPurchaseId} cancelled. Reason: {reason}. Stock reversed for {affectedParts.Count} parts.",
             cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -319,12 +352,14 @@ public class InventoryBusinessService : IInventoryBusinessService
         part.Stock = newStock;
         partRepository.Update(part);
 
-        await TryCreateStockAdjustmentAuditAsync(
+        var auditReasonText = string.IsNullOrWhiteSpace(reason) ? "N/A" : reason;
+
+        await _auditLogger.LogAsync(
             changedByUserId,
+            UpdateAuditActionTypeName,
+            "Parts",
             part.PartId,
-            previousStock,
-            newStock,
-            reason,
+            $"Stock adjusted from {previousStock} to {newStock}. Reason: {auditReasonText}",
             cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -354,68 +389,6 @@ public class InventoryBusinessService : IInventoryBusinessService
         };
 
         return Result<InventorySummaryDto>.Success(summary);
-    }
-
-    private async Task TryCreateStockAdjustmentAuditAsync(
-        int changedByUserId,
-        int partId,
-        int previousStock,
-        int newStock,
-        string? reason,
-        CancellationToken cancellationToken)
-    {
-        var auditActionTypes = await _unitOfWork.Repository<AuditActionType>().GetAllAsync(cancellationToken);
-        var updateActionType = auditActionTypes.FirstOrDefault(x =>
-            x.Name.Equals(UpdateAuditActionTypeName, StringComparison.OrdinalIgnoreCase));
-
-        if (updateActionType is null)
-        {
-            return;
-        }
-
-        var reasonText = string.IsNullOrWhiteSpace(reason) ? "N/A" : reason;
-        var description = $"Stock adjusted from {previousStock} to {newStock}. Reason: {reasonText}";
-
-        var audit = new Audit
-        {
-            UserId = changedByUserId,
-            AuditActionTypeId = updateActionType.AuditActionTypeId,
-            AffectedEntity = "Parts",
-            AffectedRecordId = partId,
-            Description = description,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await _unitOfWork.Repository<Audit>().AddAsync(audit, cancellationToken);
-    }
-
-    private async Task TryCreatePurchaseCancellationAuditAsync(
-        int currentUserId,
-        int purchaseId,
-        string reason,
-        int affectedPartCount,
-        CancellationToken cancellationToken)
-    {
-        var auditActionTypes = await _unitOfWork.Repository<AuditActionType>().GetAllAsync(cancellationToken);
-        var updateActionType = auditActionTypes.FirstOrDefault(x =>
-            x.Name.Equals(CancelAuditActionTypeName, StringComparison.OrdinalIgnoreCase));
-
-        if (updateActionType is null)
-        {
-            return;
-        }
-
-        var audit = new Audit
-        {
-            UserId = currentUserId,
-            AuditActionTypeId = updateActionType.AuditActionTypeId,
-            AffectedEntity = "PartPurchase",
-            AffectedRecordId = purchaseId,
-            Description = $"Purchase {purchaseId} cancelled. Reason: {reason}. Stock reversed for {affectedPartCount} parts.",
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await _unitOfWork.Repository<Audit>().AddAsync(audit, cancellationToken);
     }
 
     private static Error? ValidateRegisterPurchaseInput(

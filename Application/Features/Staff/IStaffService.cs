@@ -6,9 +6,9 @@ namespace Application.Features.Staff;
 
 public interface IStaffService
 {
-    Task<Result<StaffUserDto>> RegisterStaffAsync(RegisterStaffRequest request, CancellationToken cancellationToken = default);
+    Task<Result<StaffUserDto>> RegisterStaffAsync(RegisterStaffRequest request, int currentUserId, CancellationToken cancellationToken = default);
 
-    Task<Result<StaffUserDto>> ActivateUserAsync(int userId, CancellationToken cancellationToken = default);
+    Task<Result<StaffUserDto>> ActivateUserAsync(int userId, int currentUserId, CancellationToken cancellationToken = default);
 
     Task<Result<StaffUserDto>> DeactivateUserAsync(int userId, int currentUserId, CancellationToken cancellationToken = default);
 

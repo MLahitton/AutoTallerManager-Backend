@@ -10,9 +10,9 @@ public interface IPartService
 
     Task<Result<PartDto>> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
-    Task<Result<PartDto>> CreateAsync(CreatePartRequest request, CancellationToken cancellationToken = default);
+    Task<Result<PartDto>> CreateAsync(CreatePartRequest request, int currentUserId, CancellationToken cancellationToken = default);
 
-    Task<Result<PartDto>> UpdateAsync(int id, UpdatePartRequest request, CancellationToken cancellationToken = default);
+    Task<Result<PartDto>> UpdateAsync(int id, UpdatePartRequest request, int currentUserId, CancellationToken cancellationToken = default);
 
-    Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task<Result> DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken = default);
 }

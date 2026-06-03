@@ -1,7 +1,8 @@
+using System.Security.Claims;
 using Application.Features.Users;
 using Application.Features.Users.Requests;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 
@@ -36,7 +37,12 @@ public class UsersController : BaseApiController
         [FromBody] CreateUserRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _userService.CreateAsync(request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _userService.CreateAsync(request, currentUserId, cancellationToken);
         return FromResult(result, user => CreatedAtAction(nameof(GetById), new { id = user.UserId }, user));
     }
 
@@ -46,14 +52,32 @@ public class UsersController : BaseApiController
         [FromBody] UpdateUserRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _userService.UpdateAsync(id, request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _userService.UpdateAsync(id, request, currentUserId, cancellationToken);
         return FromResult(result, user => Ok(user));
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
-        var result = await _userService.DeleteAsync(id, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _userService.DeleteAsync(id, currentUserId, cancellationToken);
         return FromResult(result, () => NoContent());
+    }
+
+    private bool TryGetCurrentUserId(out int currentUserId)
+    {
+        currentUserId = 0;
+        var userIdClaim = User.FindFirstValue("userId");
+
+        return int.TryParse(userIdClaim, out currentUserId) && currentUserId > 0;
     }
 }

@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.InvoiceBusiness.Dtos;
@@ -21,17 +22,24 @@ public class InvoiceBusinessService : IInvoiceBusinessService
     private const string CompletedPaymentStatusName = "Completed";
     private const string LaborLineType = "labor";
     private const string PartLineType = "part";
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string CancelAuditActionTypeName = "CANCEL";
+    private const string InvoiceEntityName = "Invoice";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public InvoiceBusinessService(IUnitOfWork unitOfWork)
+    public InvoiceBusinessService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<GeneratedInvoiceDto>> GenerateFromServiceOrderAsync(
         int serviceOrderId,
         GenerateInvoiceFromServiceOrderRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         if (serviceOrderId <= 0)
@@ -222,28 +230,43 @@ public class InvoiceBusinessService : IInvoiceBusinessService
 
         invoice.Subtotal = subtotal;
         invoice.Total = subtotal + tax;
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return Result<GeneratedInvoiceDto>.Success(new GeneratedInvoiceDto
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
         {
-            InvoiceId = invoice.InvoiceId,
-            InvoiceNumber = invoice.InvoiceNumber,
-            ServiceOrderId = invoice.ServiceOrderId,
-            InvoiceStatusId = invoice.InvoiceStatusId,
-            InvoiceDate = invoice.InvoiceDate,
-            Subtotal = invoice.Subtotal,
-            Tax = invoice.Tax,
-            Total = invoice.Total,
-            Observations = invoice.Observations,
-            Details = createdDetails
-                .OrderBy(x => x.InvoiceDetailId)
-                .Select(MapGeneratedDetail)
-                .ToList()
-        });
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                InvoiceEntityName,
+                invoice.InvoiceId,
+                $"Invoice {invoice.InvoiceId} generated from service order {serviceOrderId}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<GeneratedInvoiceDto>.Success(new GeneratedInvoiceDto
+            {
+                InvoiceId = invoice.InvoiceId,
+                InvoiceNumber = invoice.InvoiceNumber,
+                ServiceOrderId = invoice.ServiceOrderId,
+                InvoiceStatusId = invoice.InvoiceStatusId,
+                InvoiceDate = invoice.InvoiceDate,
+                Subtotal = invoice.Subtotal,
+                Tax = invoice.Tax,
+                Total = invoice.Total,
+                Observations = invoice.Observations,
+                Details = createdDetails
+                    .OrderBy(x => x.InvoiceDetailId)
+                    .Select(MapGeneratedDetail)
+                    .ToList()
+            });
+        }, cancellationToken);
     }
 
     public async Task<Result<InvoiceBusinessResultDto>> RecalculateAsync(
         int invoiceId,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         if (invoiceId <= 0)
@@ -271,6 +294,14 @@ public class InvoiceBusinessService : IInvoiceBusinessService
         invoice.Total = invoice.Subtotal + invoice.Tax;
         invoiceRepository.Update(invoice);
 
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            InvoiceEntityName,
+            invoice.InvoiceId,
+            $"Invoice {invoice.InvoiceId} recalculated.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<InvoiceBusinessResultDto>.Success(MapResult(invoice, "Recalculate"));
@@ -278,6 +309,7 @@ public class InvoiceBusinessService : IInvoiceBusinessService
 
     public async Task<Result<InvoiceBusinessResultDto>> IssueAsync(
         int invoiceId,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         if (invoiceId <= 0)
@@ -307,6 +339,14 @@ public class InvoiceBusinessService : IInvoiceBusinessService
         invoice.InvoiceStatusId = issuedStatus.InvoiceStatusId;
         invoiceRepository.Update(invoice);
 
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            InvoiceEntityName,
+            invoice.InvoiceId,
+            $"Invoice {invoice.InvoiceId} issued.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<InvoiceBusinessResultDto>.Success(MapResult(invoice, "Issue"));
@@ -315,6 +355,7 @@ public class InvoiceBusinessService : IInvoiceBusinessService
     public async Task<Result<InvoiceBusinessResultDto>> CancelAsync(
         int invoiceId,
         CancelInvoiceRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         if (invoiceId <= 0)
@@ -367,6 +408,14 @@ public class InvoiceBusinessService : IInvoiceBusinessService
 
         invoice.InvoiceStatusId = cancelledStatus.InvoiceStatusId;
         invoiceRepository.Update(invoice);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            CancelAuditActionTypeName,
+            InvoiceEntityName,
+            invoice.InvoiceId,
+            $"Invoice {invoice.InvoiceId} cancelled.",
+            cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

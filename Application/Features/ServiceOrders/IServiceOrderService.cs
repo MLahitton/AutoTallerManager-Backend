@@ -10,9 +10,19 @@ public interface IServiceOrderService
 
     Task<Result<ServiceOrderDto>> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
-    Task<Result<ServiceOrderDto>> CreateAsync(CreateServiceOrderRequest request, CancellationToken cancellationToken = default);
+    Task<Result<ServiceOrderDto>> CreateAsync(
+        CreateServiceOrderRequest request,
+        int currentUserId,
+        CancellationToken cancellationToken = default);
 
-    Task<Result<ServiceOrderDto>> UpdateAsync(int id, UpdateServiceOrderRequest request, CancellationToken cancellationToken = default);
+    Task<Result<ServiceOrderDto>> UpdateAsync(
+        int id,
+        UpdateServiceOrderRequest request,
+        int currentUserId,
+        CancellationToken cancellationToken = default);
 
-    Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task<Result> DeleteAsync(
+        int id,
+        int currentUserId,
+        CancellationToken cancellationToken = default);
 }

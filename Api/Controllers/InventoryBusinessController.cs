@@ -26,7 +26,13 @@ public class InventoryBusinessController : BaseApiController
         [FromBody] RegisterInventoryPurchaseRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _inventoryBusinessService.RegisterPurchaseAsync(request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            var invalidUserResult = Result<InventoryPurchaseResultDto>.Failure(InventoryBusinessErrors.CurrentUserInvalid);
+            return FromResult(invalidUserResult, purchase => Ok(purchase));
+        }
+
+        var result = await _inventoryBusinessService.RegisterPurchaseAsync(request, currentUserId, cancellationToken);
         return FromResult(result, purchase => Ok(purchase));
     }
 

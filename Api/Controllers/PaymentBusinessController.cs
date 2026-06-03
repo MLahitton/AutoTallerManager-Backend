@@ -24,7 +24,12 @@ public class PaymentBusinessController : BaseApiController
         [FromBody] RecordPaymentRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _paymentBusinessService.RecordPaymentAsync(id, request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _paymentBusinessService.RecordPaymentAsync(id, request, currentUserId, cancellationToken);
         return FromResult(result, payment => Ok(payment));
     }
 
@@ -45,8 +50,21 @@ public class PaymentBusinessController : BaseApiController
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Refund(int id, CancellationToken cancellationToken)
     {
-        var result = await _paymentBusinessService.RefundAsync(id, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _paymentBusinessService.RefundAsync(id, currentUserId, cancellationToken);
         return FromResult(result, payment => Ok(payment));
+    }
+
+    private bool TryGetCurrentUserId(out int userId)
+    {
+        userId = 0;
+        var userIdClaim = User.FindFirstValue("userId");
+
+        return int.TryParse(userIdClaim, out userId) && userId > 0;
     }
 
     private bool TryGetCurrentContext(out int personId, out IReadOnlyList<string> roles)

@@ -6,7 +6,7 @@ namespace Application.Features.PaymentBusiness;
 
 public interface IPaymentBusinessService
 {
-    Task<Result<RecordedPaymentDto>> RecordPaymentAsync(int invoiceId, RecordPaymentRequest request, CancellationToken cancellationToken = default);
+    Task<Result<RecordedPaymentDto>> RecordPaymentAsync(int invoiceId, RecordPaymentRequest request, int currentUserId, CancellationToken cancellationToken = default);
     Task<Result<PaymentSummaryDto>> GetPaymentSummaryAsync(int invoiceId, int currentPersonId, IReadOnlyList<string> currentRoles, CancellationToken cancellationToken = default);
-    Task<Result<RecordedPaymentDto>> RefundAsync(int paymentId, CancellationToken cancellationToken = default);
+    Task<Result<RecordedPaymentDto>> RefundAsync(int paymentId, int currentUserId, CancellationToken cancellationToken = default);
 }

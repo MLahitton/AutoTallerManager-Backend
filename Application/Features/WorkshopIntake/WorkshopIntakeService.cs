@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.WorkshopIntake.Dtos;
@@ -14,12 +15,17 @@ public class WorkshopIntakeService : IWorkshopIntakeService
     private const string CancelledStatusName = "Cancelled";
     private const string VoidedStatusName = "Voided";
     private const string InitialIntakeObservation = "Initial service order intake.";
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string ServiceOrderEntityName = "ServiceOrder";
+    private const string OrderServiceEntityName = "OrderService";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public WorkshopIntakeService(IUnitOfWork unitOfWork)
+    public WorkshopIntakeService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<WorkshopIntakeDto>> CreateServiceOrderAsync(
@@ -153,91 +159,115 @@ public class WorkshopIntakeService : IWorkshopIntakeService
             toolboxDescription = null;
         }
 
-        var serviceOrder = new ServiceOrder
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
         {
-            VehicleId = vehicleId,
-            OrderStatusId = initialStatus.OrderStatusId,
-            EntryDate = entryDate,
-            EstimatedDeliveryDate = estimatedDeliveryDate,
-            GeneralDescription = generalDescription,
-            CancellationReason = null,
-            CancellationDate = null
-        };
-
-        var serviceOrderRepositoryForCreate = _unitOfWork.Repository<ServiceOrder>();
-        await serviceOrderRepositoryForCreate.AddAsync(serviceOrder, cancellationToken);
-
-        var inventory = new VehicleEntryInventory
-        {
-            ServiceOrder = serviceOrder,
-            HasScratches = hasScratches,
-            ScratchesDescription = scratchesDescription,
-            HasToolbox = hasToolbox,
-            ToolboxDescription = toolboxDescription,
-            OwnershipCardDelivered = ownershipCardDelivered,
-            Observations = inventoryObservations,
-            RegisteredAt = DateTime.UtcNow
-        };
-
-        var inventoryRepository = _unitOfWork.Repository<VehicleEntryInventory>();
-        await inventoryRepository.AddAsync(inventory, cancellationToken);
-
-        var statusHistory = new OrderStatusHistory
-        {
-            ServiceOrder = serviceOrder,
-            PreviousOrderStatusId = null,
-            NewOrderStatusId = initialStatus.OrderStatusId,
-            ChangedByUserId = changedByUserId,
-            Observation = InitialIntakeObservation,
-            ChangedAt = DateTime.UtcNow
-        };
-
-        var statusHistoryRepository = _unitOfWork.Repository<OrderStatusHistory>();
-        await statusHistoryRepository.AddAsync(statusHistory, cancellationToken);
-
-        var orderServiceRepository = _unitOfWork.Repository<OrderService>();
-        var createdOrderServices = new List<OrderService>();
-
-        foreach (var requestedService in requestedServices)
-        {
-            var orderService = new OrderService
+            var serviceOrder = new ServiceOrder
             {
-                ServiceOrder = serviceOrder,
-                ServiceTypeId = requestedService.ServiceTypeId,
-                Description = NormalizeOptionalText(requestedService.Description),
-                WorkPerformed = null,
-                LaborCost = requestedService.LaborCost,
-                CustomerApproved = null,
-                ApprovalDate = null
+                VehicleId = vehicleId,
+                OrderStatusId = initialStatus.OrderStatusId,
+                EntryDate = entryDate,
+                EstimatedDeliveryDate = estimatedDeliveryDate,
+                GeneralDescription = generalDescription,
+                CancellationReason = null,
+                CancellationDate = null
             };
 
-            await orderServiceRepository.AddAsync(orderService, cancellationToken);
-            createdOrderServices.Add(orderService);
-        }
+            var serviceOrderRepositoryForCreate = _unitOfWork.Repository<ServiceOrder>();
+            await serviceOrderRepositoryForCreate.AddAsync(serviceOrder, transactionCancellationToken);
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            var inventory = new VehicleEntryInventory
+            {
+                ServiceOrder = serviceOrder,
+                HasScratches = hasScratches,
+                ScratchesDescription = scratchesDescription,
+                HasToolbox = hasToolbox,
+                ToolboxDescription = toolboxDescription,
+                OwnershipCardDelivered = ownershipCardDelivered,
+                Observations = inventoryObservations,
+                RegisteredAt = DateTime.UtcNow
+            };
 
-        return Result<WorkshopIntakeDto>.Success(new WorkshopIntakeDto
-        {
-            ServiceOrderId = serviceOrder.ServiceOrderId,
-            VehicleId = serviceOrder.VehicleId,
-            OrderStatusId = serviceOrder.OrderStatusId,
-            EntryInventoryId = inventory.EntryInventoryId,
-            OrderStatusHistoryId = statusHistory.OrderStatusHistoryId,
-            EntryDate = serviceOrder.EntryDate,
-            EstimatedDeliveryDate = serviceOrder.EstimatedDeliveryDate,
-            GeneralDescription = serviceOrder.GeneralDescription,
-            Services = createdOrderServices
-                .OrderBy(x => x.OrderServiceId)
-                .Select(x => new WorkshopIntakeOrderServiceDto
+            var inventoryRepository = _unitOfWork.Repository<VehicleEntryInventory>();
+            await inventoryRepository.AddAsync(inventory, transactionCancellationToken);
+
+            var statusHistory = new OrderStatusHistory
+            {
+                ServiceOrder = serviceOrder,
+                PreviousOrderStatusId = null,
+                NewOrderStatusId = initialStatus.OrderStatusId,
+                ChangedByUserId = changedByUserId,
+                Observation = InitialIntakeObservation,
+                ChangedAt = DateTime.UtcNow
+            };
+
+            var statusHistoryRepository = _unitOfWork.Repository<OrderStatusHistory>();
+            await statusHistoryRepository.AddAsync(statusHistory, transactionCancellationToken);
+
+            var orderServiceRepository = _unitOfWork.Repository<OrderService>();
+            var createdOrderServices = new List<OrderService>();
+
+            foreach (var requestedService in requestedServices)
+            {
+                var orderService = new OrderService
                 {
-                    OrderServiceId = x.OrderServiceId,
-                    ServiceTypeId = x.ServiceTypeId,
-                    Description = x.Description,
-                    LaborCost = x.LaborCost
-                })
-                .ToList()
-        });
+                    ServiceOrder = serviceOrder,
+                    ServiceTypeId = requestedService.ServiceTypeId,
+                    Description = NormalizeOptionalText(requestedService.Description),
+                    WorkPerformed = null,
+                    LaborCost = requestedService.LaborCost,
+                    CustomerApproved = null,
+                    ApprovalDate = null
+                };
+
+                await orderServiceRepository.AddAsync(orderService, transactionCancellationToken);
+                createdOrderServices.Add(orderService);
+            }
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            await _auditLogger.LogAsync(
+                changedByUserId,
+                CreateAuditActionTypeName,
+                ServiceOrderEntityName,
+                serviceOrder.ServiceOrderId,
+                $"Service order {serviceOrder.ServiceOrderId} created from workshop intake for vehicle {vehicle.VehicleId} ({vehicle.Plate}).",
+                transactionCancellationToken);
+
+            foreach (var orderService in createdOrderServices)
+            {
+                await _auditLogger.LogAsync(
+                    changedByUserId,
+                    CreateAuditActionTypeName,
+                    OrderServiceEntityName,
+                    orderService.OrderServiceId,
+                    $"Order service {orderService.OrderServiceId} added to service order {serviceOrder.ServiceOrderId} during workshop intake.",
+                    transactionCancellationToken);
+            }
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<WorkshopIntakeDto>.Success(new WorkshopIntakeDto
+            {
+                ServiceOrderId = serviceOrder.ServiceOrderId,
+                VehicleId = serviceOrder.VehicleId,
+                OrderStatusId = serviceOrder.OrderStatusId,
+                EntryInventoryId = inventory.EntryInventoryId,
+                OrderStatusHistoryId = statusHistory.OrderStatusHistoryId,
+                EntryDate = serviceOrder.EntryDate,
+                EstimatedDeliveryDate = serviceOrder.EstimatedDeliveryDate,
+                GeneralDescription = serviceOrder.GeneralDescription,
+                Services = createdOrderServices
+                    .OrderBy(x => x.OrderServiceId)
+                    .Select(x => new WorkshopIntakeOrderServiceDto
+                    {
+                        OrderServiceId = x.OrderServiceId,
+                        ServiceTypeId = x.ServiceTypeId,
+                        Description = x.Description,
+                        LaborCost = x.LaborCost
+                    })
+                    .ToList()
+            });
+        }, cancellationToken);
     }
 
     private static Error? Validate(

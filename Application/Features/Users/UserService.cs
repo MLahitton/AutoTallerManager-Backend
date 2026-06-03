@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Common.Security;
@@ -12,14 +13,20 @@ public class UserService : IUserService
 {
     private const int MinPasswordLength = 8;
     private const int MaxPasswordLength = 100;
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string DeleteAuditActionTypeName = "DELETE";
+    private const string UserEntityName = "User";
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IAuditLogger _auditLogger;
 
-    public UserService(IUnitOfWork unitOfWork, IPasswordHasher passwordHasher)
+    public UserService(IUnitOfWork unitOfWork, IPasswordHasher passwordHasher, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<IReadOnlyList<UserDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -48,7 +55,7 @@ public class UserService : IUserService
         return Result<UserDto>.Success(MapToDto(user));
     }
 
-    public async Task<Result<UserDto>> CreateAsync(CreateUserRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<UserDto>> CreateAsync(CreateUserRequest request, int currentUserId, CancellationToken cancellationToken = default)
     {
         var personId = request?.PersonId ?? 0;
         var password = NormalizePassword(request?.Password);
@@ -92,13 +99,26 @@ public class UserService : IUserService
             IsActive = request?.IsActive ?? false
         };
 
-        await userRepository.AddAsync(user, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+        {
+            await userRepository.AddAsync(user, transactionCancellationToken);
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        return Result<UserDto>.Success(MapToDto(user));
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                UserEntityName,
+                user.UserId,
+                $"User {user.UserId} created.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<UserDto>.Success(MapToDto(user));
+        }, cancellationToken);
     }
 
-    public async Task<Result<UserDto>> UpdateAsync(int id, UpdateUserRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<UserDto>> UpdateAsync(int id, UpdateUserRequest request, int currentUserId, CancellationToken cancellationToken = default)
     {
         var userRepository = _unitOfWork.Repository<User>();
         var user = await userRepository.GetByIdAsync(id, cancellationToken);
@@ -150,12 +170,21 @@ public class UserService : IUserService
         user.IsActive = request?.IsActive ?? false;
 
         userRepository.Update(user);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            UserEntityName,
+            user.UserId,
+            $"User {user.UserId} updated.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<UserDto>.Success(MapToDto(user));
     }
 
-    public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken = default)
     {
         var userRepository = _unitOfWork.Repository<User>();
         var user = await userRepository.GetByIdAsync(id, cancellationToken);
@@ -186,6 +215,18 @@ public class UserService : IUserService
         }
 
         userRepository.Remove(user);
+
+        if (currentUserId != id)
+        {
+            await _auditLogger.LogAsync(
+                currentUserId,
+                DeleteAuditActionTypeName,
+                UserEntityName,
+                user.UserId,
+                $"User {user.UserId} deleted.",
+                cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

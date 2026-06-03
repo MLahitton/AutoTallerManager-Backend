@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.OrderServices.Dtos;
@@ -11,12 +12,18 @@ public class OrderServiceService : IOrderServiceService
 {
     private const string CancelledStatusName = "Cancelled";
     private const string VoidedStatusName = "Voided";
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string DeleteAuditActionTypeName = "DELETE";
+    private const string OrderServiceEntityName = "OrderService";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public OrderServiceService(IUnitOfWork unitOfWork)
+    public OrderServiceService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<IReadOnlyList<OrderServiceDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -47,6 +54,7 @@ public class OrderServiceService : IOrderServiceService
 
     public async Task<Result<OrderServiceDto>> CreateAsync(
         CreateOrderServiceRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         var serviceOrderId = request?.ServiceOrderId ?? 0;
@@ -92,27 +100,41 @@ public class OrderServiceService : IOrderServiceService
 
         approvalDate = ResolveApprovalDate(customerApproved, approvalDate);
 
-        var orderService = new OrderService
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
         {
-            ServiceOrderId = serviceOrderId,
-            ServiceTypeId = serviceTypeId,
-            Description = description,
-            WorkPerformed = workPerformed,
-            LaborCost = laborCost,
-            CustomerApproved = customerApproved,
-            ApprovalDate = approvalDate
-        };
+            var orderService = new OrderService
+            {
+                ServiceOrderId = serviceOrderId,
+                ServiceTypeId = serviceTypeId,
+                Description = description,
+                WorkPerformed = workPerformed,
+                LaborCost = laborCost,
+                CustomerApproved = customerApproved,
+                ApprovalDate = approvalDate
+            };
 
-        var orderServiceRepository = _unitOfWork.Repository<OrderService>();
-        await orderServiceRepository.AddAsync(orderService, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            var orderServiceRepository = _unitOfWork.Repository<OrderService>();
+            await orderServiceRepository.AddAsync(orderService, transactionCancellationToken);
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        return Result<OrderServiceDto>.Success(MapToDto(orderService));
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                OrderServiceEntityName,
+                orderService.OrderServiceId,
+                $"Order service {orderService.OrderServiceId} added to service order {serviceOrderId}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<OrderServiceDto>.Success(MapToDto(orderService));
+        }, cancellationToken);
     }
 
     public async Task<Result<OrderServiceDto>> UpdateAsync(
         int id,
         UpdateOrderServiceRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         var orderServiceRepository = _unitOfWork.Repository<OrderService>();
@@ -175,12 +197,24 @@ public class OrderServiceService : IOrderServiceService
         orderService.ApprovalDate = approvalDate;
 
         orderServiceRepository.Update(orderService);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            OrderServiceEntityName,
+            orderService.OrderServiceId,
+            $"Order service {orderService.OrderServiceId} updated for service order {serviceOrderId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<OrderServiceDto>.Success(MapToDto(orderService));
     }
 
-    public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteAsync(
+        int id,
+        int currentUserId,
+        CancellationToken cancellationToken = default)
     {
         var orderServiceRepository = _unitOfWork.Repository<OrderService>();
         var orderService = await orderServiceRepository.GetByIdAsync(id, cancellationToken);
@@ -211,6 +245,15 @@ public class OrderServiceService : IOrderServiceService
         }
 
         orderServiceRepository.Remove(orderService);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            DeleteAuditActionTypeName,
+            OrderServiceEntityName,
+            orderService.OrderServiceId,
+            $"Order service {orderService.OrderServiceId} removed from service order {orderService.ServiceOrderId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

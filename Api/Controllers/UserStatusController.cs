@@ -20,7 +20,13 @@ public class UserStatusController : BaseApiController
     [HttpPut("{id:int}/activate")]
     public async Task<IActionResult> Activate(int id, CancellationToken cancellationToken)
     {
-        var result = await _staffService.ActivateUserAsync(id, cancellationToken);
+        var currentUserIdClaim = User.FindFirstValue("userId");
+        if (!int.TryParse(currentUserIdClaim, out var currentUserId) || currentUserId <= 0)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _staffService.ActivateUserAsync(id, currentUserId, cancellationToken);
         return FromResult(result, user => Ok(user));
     }
 

@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.ServiceOrderWorkflow.Dtos;
@@ -19,12 +20,18 @@ public class ServiceOrderWorkflowService : IServiceOrderWorkflowService
     private const string CompletedStatusName = "Completed";
 
     private const string CompletedObservation = "Service order completed.";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string CancelAuditActionTypeName = "CANCEL";
+    private const string VoidAuditActionTypeName = "VOID";
+    private const string ServiceOrderEntityName = "ServiceOrder";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public ServiceOrderWorkflowService(IUnitOfWork unitOfWork)
+    public ServiceOrderWorkflowService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<ServiceOrderFullDetailDto>> GetFullDetailAsync(
@@ -269,6 +276,14 @@ public class ServiceOrderWorkflowService : IServiceOrderWorkflowService
         serviceOrder.OrderStatusId = newStatus.OrderStatusId;
         serviceOrderRepository.Update(serviceOrder);
 
+        await _auditLogger.LogAsync(
+            changedByUserId,
+            UpdateAuditActionTypeName,
+            ServiceOrderEntityName,
+            serviceOrder.ServiceOrderId,
+            $"Service order {serviceOrder.ServiceOrderId} status changed from {previousStatus.Name} to {newStatus.Name}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<ServiceOrderWorkflowDto>.Success(MapWorkflowDto(serviceOrder, history));
@@ -344,6 +359,15 @@ public class ServiceOrderWorkflowService : IServiceOrderWorkflowService
         serviceOrder.CancellationDate = DateTime.UtcNow;
 
         serviceOrderRepository.Update(serviceOrder);
+
+        await _auditLogger.LogAsync(
+            changedByUserId,
+            CancelAuditActionTypeName,
+            ServiceOrderEntityName,
+            serviceOrder.ServiceOrderId,
+            $"Service order {serviceOrder.ServiceOrderId} cancelled. Reason: {reason}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<ServiceOrderWorkflowDto>.Success(MapWorkflowDto(serviceOrder, history));
@@ -417,6 +441,15 @@ public class ServiceOrderWorkflowService : IServiceOrderWorkflowService
         serviceOrder.CancellationDate = DateTime.UtcNow;
 
         serviceOrderRepository.Update(serviceOrder);
+
+        await _auditLogger.LogAsync(
+            changedByUserId,
+            VoidAuditActionTypeName,
+            ServiceOrderEntityName,
+            serviceOrder.ServiceOrderId,
+            $"Service order {serviceOrder.ServiceOrderId} voided. Reason: {reason}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<ServiceOrderWorkflowDto>.Success(MapWorkflowDto(serviceOrder, history));
@@ -505,6 +538,14 @@ public class ServiceOrderWorkflowService : IServiceOrderWorkflowService
 
         serviceOrder.OrderStatusId = completedStatus.OrderStatusId;
         serviceOrderRepository.Update(serviceOrder);
+
+        await _auditLogger.LogAsync(
+            changedByUserId,
+            UpdateAuditActionTypeName,
+            ServiceOrderEntityName,
+            serviceOrder.ServiceOrderId,
+            $"Service order {serviceOrder.ServiceOrderId} completed.",
+            cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

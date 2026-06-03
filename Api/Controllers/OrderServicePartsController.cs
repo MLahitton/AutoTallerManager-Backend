@@ -1,7 +1,8 @@
+using System.Security.Claims;
 using Application.Features.OrderServiceParts;
 using Application.Features.OrderServiceParts.Requests;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 
@@ -36,7 +37,12 @@ public class OrderServicePartsController : BaseApiController
         [FromBody] CreateOrderServicePartRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _orderServicePartService.CreateAsync(request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _orderServicePartService.CreateAsync(request, currentUserId, cancellationToken);
         return FromResult(result, orderServicePart => CreatedAtAction(nameof(GetById), new { id = orderServicePart.OrderServicePartId }, orderServicePart));
     }
 
@@ -46,14 +52,32 @@ public class OrderServicePartsController : BaseApiController
         [FromBody] UpdateOrderServicePartRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _orderServicePartService.UpdateAsync(id, request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _orderServicePartService.UpdateAsync(id, request, currentUserId, cancellationToken);
         return FromResult(result, orderServicePart => Ok(orderServicePart));
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
-        var result = await _orderServicePartService.DeleteAsync(id, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _orderServicePartService.DeleteAsync(id, currentUserId, cancellationToken);
         return FromResult(result, () => NoContent());
+    }
+
+    private bool TryGetCurrentUserId(out int currentUserId)
+    {
+        currentUserId = 0;
+        var userIdClaim = User.FindFirstValue("userId");
+
+        return int.TryParse(userIdClaim, out currentUserId) && currentUserId > 0;
     }
 }

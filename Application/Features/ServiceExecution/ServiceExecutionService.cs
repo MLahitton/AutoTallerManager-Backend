@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.ServiceExecution.Dtos;
@@ -16,12 +17,20 @@ public class ServiceExecutionService : IServiceExecutionService
     private const string CancelledStatusName = "Cancelled";
     private const string VoidedStatusName = "Voided";
     private const string CompletedStatusName = "Completed";
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string DeleteAuditActionTypeName = "DELETE";
+    private const string MechanicAssignmentEntityName = "MechanicAssignment";
+    private const string OrderServiceEntityName = "OrderService";
+    private const string OrderServicePartEntityName = "OrderServicePart";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public ServiceExecutionService(IUnitOfWork unitOfWork)
+    public ServiceExecutionService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<IReadOnlyList<MechanicAssignedServiceDto>>> GetMyAssignedServicesAsync(
@@ -273,6 +282,7 @@ public class ServiceExecutionService : IServiceExecutionService
     public async Task<Result<ServiceExecutionResultDto>> UpdateWorkPerformedAsync(
         int orderServiceId,
         int currentPersonId,
+        int currentUserId,
         IReadOnlyList<string> currentRoles,
         UpdateWorkPerformedRequest request,
         CancellationToken cancellationToken = default)
@@ -330,6 +340,15 @@ public class ServiceExecutionService : IServiceExecutionService
         orderService.LaborCost = laborCost;
 
         _unitOfWork.Repository<OrderService>().Update(orderService);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            OrderServiceEntityName,
+            orderServiceId,
+            $"Work report updated for order service {orderServiceId} by person {currentPersonId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<ServiceExecutionResultDto>.Success(SuccessResult(orderServiceId, "OrderService", "UpdateWorkReport"));
@@ -338,6 +357,7 @@ public class ServiceExecutionService : IServiceExecutionService
     public async Task<Result<ServiceExecutionResultDto>> AssignMechanicAsync(
         int orderServiceId,
         AssignMechanicRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         if (orderServiceId <= 0)
@@ -428,15 +448,29 @@ public class ServiceExecutionService : IServiceExecutionService
             SpecialtyId = specialtyId
         };
 
-        await _unitOfWork.Repository<MechanicAssignment>().AddAsync(mechanicAssignment, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+        {
+            await _unitOfWork.Repository<MechanicAssignment>().AddAsync(mechanicAssignment, transactionCancellationToken);
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        return Result<ServiceExecutionResultDto>.Success(SuccessResult(mechanicAssignment.MechanicAssignmentId, "MechanicAssignment", "AssignMechanic"));
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                MechanicAssignmentEntityName,
+                mechanicAssignment.MechanicAssignmentId,
+                $"Mechanic {mechanicPersonId} assigned to order service {orderServiceId}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<ServiceExecutionResultDto>.Success(SuccessResult(mechanicAssignment.MechanicAssignmentId, "MechanicAssignment", "AssignMechanic"));
+        }, cancellationToken);
     }
 
     public async Task<Result<ServiceExecutionResultDto>> UnassignMechanicAsync(
         int orderServiceId,
         UnassignMechanicRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         if (orderServiceId <= 0)
@@ -480,6 +514,15 @@ public class ServiceExecutionService : IServiceExecutionService
         }
 
         mechanicAssignmentRepository.Remove(mechanicAssignment);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            DeleteAuditActionTypeName,
+            MechanicAssignmentEntityName,
+            mechanicAssignmentId,
+            $"Mechanic assignment {mechanicAssignmentId} removed from order service {orderServiceId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<ServiceExecutionResultDto>.Success(SuccessResult(mechanicAssignmentId, "MechanicAssignment", "UnassignMechanic"));
@@ -488,6 +531,7 @@ public class ServiceExecutionService : IServiceExecutionService
     public async Task<Result<ServiceExecutionResultDto>> RequestPartAsync(
         int orderServiceId,
         int currentPersonId,
+        int currentUserId,
         IReadOnlyList<string> currentRoles,
         RequestOrderServicePartRequest request,
         CancellationToken cancellationToken = default)
@@ -582,10 +626,23 @@ public class ServiceExecutionService : IServiceExecutionService
             ApprovalDate = null
         };
 
-        await _unitOfWork.Repository<OrderServicePart>().AddAsync(orderServicePart, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+        {
+            await _unitOfWork.Repository<OrderServicePart>().AddAsync(orderServicePart, transactionCancellationToken);
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        return Result<ServiceExecutionResultDto>.Success(SuccessResult(orderServicePart.OrderServicePartId, "OrderServicePart", "RequestPart"));
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                OrderServicePartEntityName,
+                orderServicePart.OrderServicePartId,
+                $"Part {partId} requested for order service {orderServiceId} by person {currentPersonId}. Quantity: {quantity}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<ServiceExecutionResultDto>.Success(SuccessResult(orderServicePart.OrderServicePartId, "OrderServicePart", "RequestPart"));
+        }, cancellationToken);
     }
 
     public async Task<Result<ServiceExecutionResultDto>> ApproveOrderServicePartAsync(
@@ -619,6 +676,7 @@ public class ServiceExecutionService : IServiceExecutionService
     public async Task<Result<ServiceExecutionResultDto>> ChangeOrderServicePartQuantityAsync(
         int orderServicePartId,
         int currentPersonId,
+        int currentUserId,
         IReadOnlyList<string> currentRoles,
         ChangeOrderServicePartQuantityRequest request,
         CancellationToken cancellationToken = default)
@@ -701,6 +759,14 @@ public class ServiceExecutionService : IServiceExecutionService
 
         orderServicePart.Quantity = newQuantity;
         orderServicePartRepository.Update(orderServicePart);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            OrderServicePartEntityName,
+            orderServicePartId,
+            $"Part request {orderServicePartId} quantity changed for order service {orderService.OrderServiceId} by person {currentPersonId}.",
+            cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

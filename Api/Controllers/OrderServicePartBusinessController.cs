@@ -60,7 +60,7 @@ public class OrderServicePartBusinessController : BaseApiController
         [FromBody] ChangeOrderServicePartQuantityRequest request,
         CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentContext(out var currentPersonId, out var currentRoles))
+        if (!TryGetCurrentContext(out var currentUserId, out var currentPersonId, out var currentRoles))
         {
             return Unauthorized();
         }
@@ -68,11 +68,39 @@ public class OrderServicePartBusinessController : BaseApiController
         var result = await _serviceExecutionService.ChangeOrderServicePartQuantityAsync(
             id,
             currentPersonId,
+            currentUserId,
             currentRoles,
             request,
             cancellationToken);
 
         return FromResult(result, execution => Ok(execution));
+    }
+
+    private bool TryGetCurrentContext(out int userId, out int personId, out IReadOnlyList<string> roles)
+    {
+        userId = 0;
+        personId = 0;
+        roles = Array.Empty<string>();
+
+        var userIdClaim = User.FindFirstValue("userId");
+        if (!int.TryParse(userIdClaim, out userId) || userId <= 0)
+        {
+            return false;
+        }
+
+        var personIdClaim = User.FindFirstValue("personId");
+        if (!int.TryParse(personIdClaim, out personId) || personId <= 0)
+        {
+            return false;
+        }
+
+        roles = User.FindAll(ClaimTypes.Role)
+            .Select(x => x.Value)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return true;
     }
 
     private bool TryGetCurrentContext(out int personId, out IReadOnlyList<string> roles)

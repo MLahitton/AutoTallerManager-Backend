@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.ServiceOrders.Dtos;
@@ -15,12 +16,18 @@ public class ServiceOrderService : IServiceOrderService
     private const string InProgressStatusName = "InProgress";
     private const string CancelledStatusName = "Cancelled";
     private const string VoidedStatusName = "Voided";
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string DeleteAuditActionTypeName = "DELETE";
+    private const string ServiceOrderEntityName = "ServiceOrder";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public ServiceOrderService(IUnitOfWork unitOfWork)
+    public ServiceOrderService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<IReadOnlyList<ServiceOrderDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -51,6 +58,7 @@ public class ServiceOrderService : IServiceOrderService
 
     public async Task<Result<ServiceOrderDto>> CreateAsync(
         CreateServiceOrderRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         var vehicleId = request?.VehicleId ?? 0;
@@ -103,27 +111,41 @@ public class ServiceOrderService : IServiceOrderService
             }
         }
 
-        var serviceOrderToCreate = new ServiceOrder
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
         {
-            VehicleId = vehicleId,
-            OrderStatusId = orderStatusId,
-            EntryDate = entryDate,
-            EstimatedDeliveryDate = estimatedDeliveryDate,
-            GeneralDescription = generalDescription,
-            CancellationReason = null,
-            CancellationDate = null
-        };
+            var serviceOrderToCreate = new ServiceOrder
+            {
+                VehicleId = vehicleId,
+                OrderStatusId = orderStatusId,
+                EntryDate = entryDate,
+                EstimatedDeliveryDate = estimatedDeliveryDate,
+                GeneralDescription = generalDescription,
+                CancellationReason = null,
+                CancellationDate = null
+            };
 
-        var createRepository = _unitOfWork.Repository<ServiceOrder>();
-        await createRepository.AddAsync(serviceOrderToCreate, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            var createRepository = _unitOfWork.Repository<ServiceOrder>();
+            await createRepository.AddAsync(serviceOrderToCreate, transactionCancellationToken);
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        return Result<ServiceOrderDto>.Success(MapToDto(serviceOrderToCreate));
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                ServiceOrderEntityName,
+                serviceOrderToCreate.ServiceOrderId,
+                $"Service order {serviceOrderToCreate.ServiceOrderId} created for vehicle {vehicle.VehicleId} ({vehicle.Plate}).",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<ServiceOrderDto>.Success(MapToDto(serviceOrderToCreate));
+        }, cancellationToken);
     }
 
     public async Task<Result<ServiceOrderDto>> UpdateAsync(
         int id,
         UpdateServiceOrderRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         var serviceOrderRepository = _unitOfWork.Repository<ServiceOrder>();
@@ -212,12 +234,24 @@ public class ServiceOrderService : IServiceOrderService
         serviceOrder.CancellationDate = cancellationDate;
 
         serviceOrderRepository.Update(serviceOrder);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            ServiceOrderEntityName,
+            serviceOrder.ServiceOrderId,
+            $"Service order {serviceOrder.ServiceOrderId} updated.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<ServiceOrderDto>.Success(MapToDto(serviceOrder));
     }
 
-    public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteAsync(
+        int id,
+        int currentUserId,
+        CancellationToken cancellationToken = default)
     {
         var serviceOrderRepository = _unitOfWork.Repository<ServiceOrder>();
         var serviceOrder = await serviceOrderRepository.GetByIdAsync(id, cancellationToken);
@@ -268,6 +302,15 @@ public class ServiceOrderService : IServiceOrderService
         }
 
         serviceOrderRepository.Remove(serviceOrder);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            DeleteAuditActionTypeName,
+            ServiceOrderEntityName,
+            serviceOrder.ServiceOrderId,
+            $"Service order {serviceOrder.ServiceOrderId} deleted.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

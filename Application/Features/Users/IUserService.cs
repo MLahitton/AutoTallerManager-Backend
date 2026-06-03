@@ -10,9 +10,9 @@ public interface IUserService
 
     Task<Result<UserDto>> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
-    Task<Result<UserDto>> CreateAsync(CreateUserRequest request, CancellationToken cancellationToken = default);
+    Task<Result<UserDto>> CreateAsync(CreateUserRequest request, int currentUserId, CancellationToken cancellationToken = default);
 
-    Task<Result<UserDto>> UpdateAsync(int id, UpdateUserRequest request, CancellationToken cancellationToken = default);
+    Task<Result<UserDto>> UpdateAsync(int id, UpdateUserRequest request, int currentUserId, CancellationToken cancellationToken = default);
 
-    Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task<Result> DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken = default);
 }

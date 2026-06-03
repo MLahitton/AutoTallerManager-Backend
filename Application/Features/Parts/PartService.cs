@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.Parts.Dtos;
@@ -11,12 +12,17 @@ public class PartService : IPartService
 {
     private const int CodeMaxLength = 50;
     private const int DescriptionMaxLength = 255;
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string DeleteAuditActionTypeName = "DELETE";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public PartService(IUnitOfWork unitOfWork)
+    public PartService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<IReadOnlyList<PartDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -45,7 +51,7 @@ public class PartService : IPartService
         return Result<PartDto>.Success(MapToDto(part));
     }
 
-    public async Task<Result<PartDto>> CreateAsync(CreatePartRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<PartDto>> CreateAsync(CreatePartRequest request, int currentUserId, CancellationToken cancellationToken = default)
     {
         var partCategoryId = request?.PartCategoryId ?? 0;
         var partBrandId = request?.PartBrandId;
@@ -107,13 +113,26 @@ public class PartService : IPartService
             IsActive = isActive
         };
 
-        await partRepository.AddAsync(part, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+        {
+            await partRepository.AddAsync(part, transactionCancellationToken);
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        return Result<PartDto>.Success(MapToDto(part));
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                "Parts",
+                part.PartId,
+                $"Part {part.PartId} created. Name: {part.Description}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<PartDto>.Success(MapToDto(part));
+        }, cancellationToken);
     }
 
-    public async Task<Result<PartDto>> UpdateAsync(int id, UpdatePartRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<PartDto>> UpdateAsync(int id, UpdatePartRequest request, int currentUserId, CancellationToken cancellationToken = default)
     {
         var partRepository = _unitOfWork.Repository<Part>();
         var part = await partRepository.GetByIdAsync(id, cancellationToken);
@@ -180,12 +199,20 @@ public class PartService : IPartService
         part.IsActive = isActive;
 
         partRepository.Update(part);
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            "Parts",
+            part.PartId,
+            $"Part {part.PartId} updated. Name: {part.Description}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<PartDto>.Success(MapToDto(part));
     }
 
-    public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken = default)
     {
         var partRepository = _unitOfWork.Repository<Part>();
         var part = await partRepository.GetByIdAsync(id, cancellationToken);
@@ -225,7 +252,17 @@ public class PartService : IPartService
             return Result.Failure(PartErrors.InUse);
         }
 
+        var partName = part.Description;
+
         partRepository.Remove(part);
+        await _auditLogger.LogAsync(
+            currentUserId,
+            DeleteAuditActionTypeName,
+            "Parts",
+            part.PartId,
+            $"Part {part.PartId} deleted. Name: {partName}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

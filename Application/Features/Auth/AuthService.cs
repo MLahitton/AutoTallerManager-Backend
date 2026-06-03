@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Common.Security;
@@ -19,25 +20,31 @@ public class AuthService : IAuthService
     private const int MinPasswordLength = 8;
     private const int MaxPasswordLength = 100;
     private const string ClientRoleName = "Client";
+    private const string LoginAuditActionTypeName = "LOGIN";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string UserEntityName = "User";
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
     private readonly IRefreshTokenGenerator _refreshTokenGenerator;
     private readonly IAuthTokenSettings _authTokenSettings;
+    private readonly IAuditLogger _auditLogger;
 
     public AuthService(
         IUnitOfWork unitOfWork,
         IPasswordHasher passwordHasher,
         IJwtTokenGenerator jwtTokenGenerator,
         IRefreshTokenGenerator refreshTokenGenerator,
-        IAuthTokenSettings authTokenSettings)
+        IAuthTokenSettings authTokenSettings,
+        IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
         _jwtTokenGenerator = jwtTokenGenerator;
         _refreshTokenGenerator = refreshTokenGenerator;
         _authTokenSettings = authTokenSettings;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<AuthResponseDto>> RegisterClientAsync(RegisterClientRequest request, CancellationToken cancellationToken = default)
@@ -358,6 +365,15 @@ public class AuthService : IAuthService
         user.RefreshTokenExpiration = refreshTokenExpiresAt;
 
         userRepository.Update(user);
+
+        await _auditLogger.LogAsync(
+            user.UserId,
+            LoginAuditActionTypeName,
+            UserEntityName,
+            user.UserId,
+            $"User {user.UserId} logged in successfully.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<AuthResponseDto>.Success(new AuthResponseDto
@@ -423,6 +439,15 @@ public class AuthService : IAuthService
         user.RefreshTokenExpiration = newRefreshTokenExpiresAt;
 
         userRepository.Update(user);
+
+        await _auditLogger.LogAsync(
+            user.UserId,
+            LoginAuditActionTypeName,
+            UserEntityName,
+            user.UserId,
+            $"User {user.UserId} refreshed authentication token.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<AuthResponseDto>.Success(new AuthResponseDto
@@ -465,6 +490,15 @@ public class AuthService : IAuthService
         user.RefreshTokenExpiration = null;
 
         userRepository.Update(user);
+
+        await _auditLogger.LogAsync(
+            user.UserId,
+            UpdateAuditActionTypeName,
+            UserEntityName,
+            user.UserId,
+            $"User {user.UserId} logged out.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

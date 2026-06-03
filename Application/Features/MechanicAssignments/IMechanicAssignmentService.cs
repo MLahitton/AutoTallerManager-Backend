@@ -12,12 +12,17 @@ public interface IMechanicAssignmentService
 
     Task<Result<MechanicAssignmentDto>> CreateAsync(
         CreateMechanicAssignmentRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default);
 
     Task<Result<MechanicAssignmentDto>> UpdateAsync(
         int id,
         UpdateMechanicAssignmentRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default);
 
-    Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task<Result> DeleteAsync(
+        int id,
+        int currentUserId,
+        CancellationToken cancellationToken = default);
 }

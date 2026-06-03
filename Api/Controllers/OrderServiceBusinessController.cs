@@ -24,7 +24,7 @@ public class OrderServiceBusinessController : BaseApiController
         [FromBody] UpdateWorkPerformedRequest request,
         CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentContext(out var currentPersonId, out var currentRoles))
+        if (!TryGetCurrentContext(out var currentUserId, out var currentPersonId, out var currentRoles))
         {
             return Unauthorized();
         }
@@ -32,6 +32,7 @@ public class OrderServiceBusinessController : BaseApiController
         var result = await _serviceExecutionService.UpdateWorkPerformedAsync(
             id,
             currentPersonId,
+            currentUserId,
             currentRoles,
             request,
             cancellationToken);
@@ -46,7 +47,12 @@ public class OrderServiceBusinessController : BaseApiController
         [FromBody] AssignMechanicRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _serviceExecutionService.AssignMechanicAsync(id, request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _serviceExecutionService.AssignMechanicAsync(id, request, currentUserId, cancellationToken);
         return FromResult(result, execution => Ok(execution));
     }
 
@@ -57,7 +63,12 @@ public class OrderServiceBusinessController : BaseApiController
         [FromBody] UnassignMechanicRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _serviceExecutionService.UnassignMechanicAsync(id, request, cancellationToken);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _serviceExecutionService.UnassignMechanicAsync(id, request, currentUserId, cancellationToken);
         return FromResult(result, execution => Ok(execution));
     }
 
@@ -68,7 +79,7 @@ public class OrderServiceBusinessController : BaseApiController
         [FromBody] RequestOrderServicePartRequest request,
         CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentContext(out var currentPersonId, out var currentRoles))
+        if (!TryGetCurrentContext(out var currentUserId, out var currentPersonId, out var currentRoles))
         {
             return Unauthorized();
         }
@@ -76,6 +87,7 @@ public class OrderServiceBusinessController : BaseApiController
         var result = await _serviceExecutionService.RequestPartAsync(
             id,
             currentPersonId,
+            currentUserId,
             currentRoles,
             request,
             cancellationToken);
@@ -83,10 +95,17 @@ public class OrderServiceBusinessController : BaseApiController
         return FromResult(result, execution => Ok(execution));
     }
 
-    private bool TryGetCurrentContext(out int personId, out IReadOnlyList<string> roles)
+    private bool TryGetCurrentContext(out int userId, out int personId, out IReadOnlyList<string> roles)
     {
+        userId = 0;
         personId = 0;
         roles = Array.Empty<string>();
+
+        var userIdClaim = User.FindFirstValue("userId");
+        if (!int.TryParse(userIdClaim, out userId) || userId <= 0)
+        {
+            return false;
+        }
 
         var personIdClaim = User.FindFirstValue("personId");
         if (!int.TryParse(personIdClaim, out personId) || personId <= 0)
@@ -101,5 +120,13 @@ public class OrderServiceBusinessController : BaseApiController
             .ToList();
 
         return true;
+    }
+
+    private bool TryGetCurrentUserId(out int userId)
+    {
+        userId = 0;
+        var userIdClaim = User.FindFirstValue("userId");
+
+        return int.TryParse(userIdClaim, out userId) && userId > 0;
     }
 }

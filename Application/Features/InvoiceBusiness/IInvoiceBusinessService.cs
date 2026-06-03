@@ -6,8 +6,8 @@ namespace Application.Features.InvoiceBusiness;
 
 public interface IInvoiceBusinessService
 {
-    Task<Result<GeneratedInvoiceDto>> GenerateFromServiceOrderAsync(int serviceOrderId, GenerateInvoiceFromServiceOrderRequest request, CancellationToken cancellationToken = default);
-    Task<Result<InvoiceBusinessResultDto>> RecalculateAsync(int invoiceId, CancellationToken cancellationToken = default);
-    Task<Result<InvoiceBusinessResultDto>> IssueAsync(int invoiceId, CancellationToken cancellationToken = default);
-    Task<Result<InvoiceBusinessResultDto>> CancelAsync(int invoiceId, CancelInvoiceRequest request, CancellationToken cancellationToken = default);
+    Task<Result<GeneratedInvoiceDto>> GenerateFromServiceOrderAsync(int serviceOrderId, GenerateInvoiceFromServiceOrderRequest request, int currentUserId, CancellationToken cancellationToken = default);
+    Task<Result<InvoiceBusinessResultDto>> RecalculateAsync(int invoiceId, int currentUserId, CancellationToken cancellationToken = default);
+    Task<Result<InvoiceBusinessResultDto>> IssueAsync(int invoiceId, int currentUserId, CancellationToken cancellationToken = default);
+    Task<Result<InvoiceBusinessResultDto>> CancelAsync(int invoiceId, CancelInvoiceRequest request, int currentUserId, CancellationToken cancellationToken = default);
 }

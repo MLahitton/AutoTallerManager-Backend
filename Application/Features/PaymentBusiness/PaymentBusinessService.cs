@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.PaymentBusiness.Dtos;
@@ -16,17 +17,23 @@ public class PaymentBusinessService : IPaymentBusinessService
     private const string RefundedStatusName = "Refunded";
     private const string CardPaymentMethodName = "Card";
     private const string ClientRoleName = "Client";
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string PaymentEntityName = "Payment";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public PaymentBusinessService(IUnitOfWork unitOfWork)
+    public PaymentBusinessService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<RecordedPaymentDto>> RecordPaymentAsync(
         int invoiceId,
         RecordPaymentRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         if (invoiceId <= 0)
@@ -137,9 +144,22 @@ public class PaymentBusinessService : IPaymentBusinessService
             await _unitOfWork.Repository<PaymentCard>().AddAsync(paymentCard, cancellationToken);
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+        {
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        return Result<RecordedPaymentDto>.Success(MapRecordedPayment(payment, paymentCard?.PaymentCardId));
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                PaymentEntityName,
+                payment.PaymentId,
+                $"Payment {payment.PaymentId} recorded for invoice {invoiceId}. Amount: {amount}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<RecordedPaymentDto>.Success(MapRecordedPayment(payment, paymentCard?.PaymentCardId));
+        }, cancellationToken);
     }
 
     public async Task<Result<PaymentSummaryDto>> GetPaymentSummaryAsync(
@@ -229,6 +249,7 @@ public class PaymentBusinessService : IPaymentBusinessService
 
     public async Task<Result<RecordedPaymentDto>> RefundAsync(
         int paymentId,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         if (paymentId <= 0)
@@ -254,6 +275,15 @@ public class PaymentBusinessService : IPaymentBusinessService
         {
             payment.PaymentStatusId = refundedStatusId;
             paymentRepository.Update(payment);
+
+            await _auditLogger.LogAsync(
+                currentUserId,
+                UpdateAuditActionTypeName,
+                PaymentEntityName,
+                payment.PaymentId,
+                $"Payment {payment.PaymentId} refunded. Amount: {payment.Amount}.",
+                cancellationToken);
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 

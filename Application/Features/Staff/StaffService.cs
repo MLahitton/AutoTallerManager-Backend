@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Common.Security;
@@ -31,17 +32,23 @@ public class StaffService : IStaffService
         ReceptionistRoleName,
         MechanicRoleName
     };
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string UserEntityName = "User";
+    private const string PersonRoleEntityName = "PersonRole";
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IAuditLogger _auditLogger;
 
-    public StaffService(IUnitOfWork unitOfWork, IPasswordHasher passwordHasher)
+    public StaffService(IUnitOfWork unitOfWork, IPasswordHasher passwordHasher, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
+        _auditLogger = auditLogger;
     }
 
-    public async Task<Result<StaffUserDto>> RegisterStaffAsync(RegisterStaffRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<StaffUserDto>> RegisterStaffAsync(RegisterStaffRequest request, int currentUserId, CancellationToken cancellationToken = default)
     {
         var documentTypeId = request?.DocumentTypeId ?? 0;
         var documentNumber = NormalizeRequiredText(request?.DocumentNumber);
@@ -316,13 +323,34 @@ public class StaffService : IStaffService
             }
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+        {
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        var staffUserDto = await BuildStaffUserDtoAsync(user, cancellationToken);
-        return Result<StaffUserDto>.Success(staffUserDto);
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                UserEntityName,
+                user.UserId,
+                $"User {user.UserId} created.",
+                transactionCancellationToken);
+
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                PersonRoleEntityName,
+                personRole.PersonRoleId,
+                $"Role {personRole.RoleId} assigned to person {person.PersonId}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            var staffUserDto = await BuildStaffUserDtoAsync(user, transactionCancellationToken);
+            return Result<StaffUserDto>.Success(staffUserDto);
+        }, cancellationToken);
     }
 
-    public async Task<Result<StaffUserDto>> ActivateUserAsync(int userId, CancellationToken cancellationToken = default)
+    public async Task<Result<StaffUserDto>> ActivateUserAsync(int userId, int currentUserId, CancellationToken cancellationToken = default)
     {
         if (userId <= 0)
         {
@@ -341,6 +369,15 @@ public class StaffService : IStaffService
         {
             user.IsActive = true;
             userRepository.Update(user);
+
+            await _auditLogger.LogAsync(
+                currentUserId,
+                UpdateAuditActionTypeName,
+                UserEntityName,
+                user.UserId,
+                $"User {user.UserId} status changed.",
+                cancellationToken);
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
@@ -386,6 +423,15 @@ public class StaffService : IStaffService
         if (requiresUpdate)
         {
             userRepository.Update(user);
+
+            await _auditLogger.LogAsync(
+                currentUserId,
+                UpdateAuditActionTypeName,
+                UserEntityName,
+                user.UserId,
+                $"User {user.UserId} status changed.",
+                cancellationToken);
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 

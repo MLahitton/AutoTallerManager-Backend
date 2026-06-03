@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.PersonRoles.Dtos;
@@ -9,11 +10,18 @@ namespace Application.Features.PersonRoles;
 
 public class PersonRoleService : IPersonRoleService
 {
-    private readonly IUnitOfWork _unitOfWork;
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string DeleteAuditActionTypeName = "DELETE";
+    private const string PersonRoleEntityName = "PersonRole";
 
-    public PersonRoleService(IUnitOfWork unitOfWork)
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
+
+    public PersonRoleService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<IReadOnlyList<PersonRoleDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -42,7 +50,7 @@ public class PersonRoleService : IPersonRoleService
         return Result<PersonRoleDto>.Success(MapToDto(personRole));
     }
 
-    public async Task<Result<PersonRoleDto>> CreateAsync(CreatePersonRoleRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<PersonRoleDto>> CreateAsync(CreatePersonRoleRequest request, int currentUserId, CancellationToken cancellationToken = default)
     {
         var personId = request?.PersonId ?? 0;
         var roleId = request?.RoleId ?? 0;
@@ -91,13 +99,26 @@ public class PersonRoleService : IPersonRoleService
             IsActive = isActive
         };
 
-        await personRoleRepository.AddAsync(personRole, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+        {
+            await personRoleRepository.AddAsync(personRole, transactionCancellationToken);
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        return Result<PersonRoleDto>.Success(MapToDto(personRole));
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                PersonRoleEntityName,
+                personRole.PersonRoleId,
+                $"Role {roleId} assigned to person {personId}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<PersonRoleDto>.Success(MapToDto(personRole));
+        }, cancellationToken);
     }
 
-    public async Task<Result<PersonRoleDto>> UpdateAsync(int id, UpdatePersonRoleRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<PersonRoleDto>> UpdateAsync(int id, UpdatePersonRoleRequest request, int currentUserId, CancellationToken cancellationToken = default)
     {
         var personRoleRepository = _unitOfWork.Repository<PersonRole>();
         var personRole = await personRoleRepository.GetByIdAsync(id, cancellationToken);
@@ -151,12 +172,23 @@ public class PersonRoleService : IPersonRoleService
         personRole.IsActive = isActive;
 
         personRoleRepository.Update(personRole);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            PersonRoleEntityName,
+            personRole.PersonRoleId,
+            isActive
+                ? $"Role {roleId} updated for person {personId}."
+                : $"Role {roleId} deactivated from person {personId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<PersonRoleDto>.Success(MapToDto(personRole));
     }
 
-    public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken = default)
     {
         var personRoleRepository = _unitOfWork.Repository<PersonRole>();
         var personRole = await personRoleRepository.GetByIdAsync(id, cancellationToken);
@@ -167,6 +199,15 @@ public class PersonRoleService : IPersonRoleService
         }
 
         personRoleRepository.Remove(personRole);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            DeleteAuditActionTypeName,
+            PersonRoleEntityName,
+            personRole.PersonRoleId,
+            $"Role {personRole.RoleId} removed from person {personRole.PersonId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.ClientApprovals.Dtos;
@@ -11,12 +12,17 @@ public class ClientApprovalService : IClientApprovalService
     private const string ClientRoleName = "Client";
     private const string ServiceApprovalType = "service";
     private const string PartApprovalType = "part";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string OrderServiceEntityName = "OrderService";
+    private const string OrderServicePartEntityName = "OrderServicePart";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public ClientApprovalService(IUnitOfWork unitOfWork)
+    public ClientApprovalService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<IReadOnlyList<ClientPendingApprovalDto>>> GetPendingApprovalsAsync(
@@ -161,38 +167,43 @@ public class ClientApprovalService : IClientApprovalService
     public async Task<Result<ClientApprovalActionResultDto>> ApproveOrderServiceAsync(
         int orderServiceId,
         int currentPersonId,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
-        return await SetOrderServiceApprovalAsync(orderServiceId, currentPersonId, approve: true, cancellationToken);
+        return await SetOrderServiceApprovalAsync(orderServiceId, currentPersonId, currentUserId, approve: true, cancellationToken);
     }
 
     public async Task<Result<ClientApprovalActionResultDto>> RejectOrderServiceAsync(
         int orderServiceId,
         int currentPersonId,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
-        return await SetOrderServiceApprovalAsync(orderServiceId, currentPersonId, approve: false, cancellationToken);
+        return await SetOrderServiceApprovalAsync(orderServiceId, currentPersonId, currentUserId, approve: false, cancellationToken);
     }
 
     public async Task<Result<ClientApprovalActionResultDto>> ApproveOrderServicePartAsync(
         int orderServicePartId,
         int currentPersonId,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
-        return await SetOrderServicePartApprovalAsync(orderServicePartId, currentPersonId, approve: true, cancellationToken);
+        return await SetOrderServicePartApprovalAsync(orderServicePartId, currentPersonId, currentUserId, approve: true, cancellationToken);
     }
 
     public async Task<Result<ClientApprovalActionResultDto>> RejectOrderServicePartAsync(
         int orderServicePartId,
         int currentPersonId,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
-        return await SetOrderServicePartApprovalAsync(orderServicePartId, currentPersonId, approve: false, cancellationToken);
+        return await SetOrderServicePartApprovalAsync(orderServicePartId, currentPersonId, currentUserId, approve: false, cancellationToken);
     }
 
     private async Task<Result<ClientApprovalActionResultDto>> SetOrderServiceApprovalAsync(
         int orderServiceId,
         int currentPersonId,
+        int currentUserId,
         bool approve,
         CancellationToken cancellationToken)
     {
@@ -237,6 +248,17 @@ public class ClientApprovalService : IClientApprovalService
         orderService.ApprovalDate = approvalDate;
 
         orderServiceRepository.Update(orderService);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            OrderServiceEntityName,
+            orderServiceId,
+            approve
+                ? $"Client person {currentPersonId} approved order service {orderServiceId}."
+                : $"Client person {currentPersonId} rejected order service {orderServiceId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<ClientApprovalActionResultDto>.Success(new ClientApprovalActionResultDto
@@ -252,6 +274,7 @@ public class ClientApprovalService : IClientApprovalService
     private async Task<Result<ClientApprovalActionResultDto>> SetOrderServicePartApprovalAsync(
         int orderServicePartId,
         int currentPersonId,
+        int currentUserId,
         bool approve,
         CancellationToken cancellationToken)
     {
@@ -302,6 +325,17 @@ public class ClientApprovalService : IClientApprovalService
         orderServicePart.ApprovalDate = approvalDate;
 
         orderServicePartRepository.Update(orderServicePart);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            OrderServicePartEntityName,
+            orderServicePartId,
+            approve
+                ? $"Client person {currentPersonId} approved order service part {orderServicePartId}."
+                : $"Client person {currentPersonId} rejected order service part {orderServicePartId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<ClientApprovalActionResultDto>.Success(new ClientApprovalActionResultDto

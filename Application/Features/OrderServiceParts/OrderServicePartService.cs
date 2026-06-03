@@ -1,3 +1,4 @@
+using Application.Common.Auditing;
 using Application.Common.Interfaces.Persistence;
 using Application.Common.Results;
 using Application.Features.OrderServiceParts.Dtos;
@@ -11,12 +12,18 @@ public class OrderServicePartService : IOrderServicePartService
 {
     private const string CancelledStatusName = "Cancelled";
     private const string VoidedStatusName = "Voided";
+    private const string CreateAuditActionTypeName = "CREATE";
+    private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string DeleteAuditActionTypeName = "DELETE";
+    private const string OrderServicePartEntityName = "OrderServicePart";
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
 
-    public OrderServicePartService(IUnitOfWork unitOfWork)
+    public OrderServicePartService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<IReadOnlyList<OrderServicePartDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -47,6 +54,7 @@ public class OrderServicePartService : IOrderServicePartService
 
     public async Task<Result<OrderServicePartDto>> CreateAsync(
         CreateOrderServicePartRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         var orderServiceId = request?.OrderServiceId ?? 0;
@@ -118,15 +126,29 @@ public class OrderServicePartService : IOrderServicePartService
             ApprovalDate = approvalDate
         };
 
-        await orderServicePartRepository.AddAsync(orderServicePart, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+        {
+            await orderServicePartRepository.AddAsync(orderServicePart, transactionCancellationToken);
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
 
-        return Result<OrderServicePartDto>.Success(MapToDto(orderServicePart));
+            await _auditLogger.LogAsync(
+                currentUserId,
+                CreateAuditActionTypeName,
+                OrderServicePartEntityName,
+                orderServicePart.OrderServicePartId,
+                $"Part {partId} requested for order service {orderServiceId}. Quantity: {quantity}.",
+                transactionCancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            return Result<OrderServicePartDto>.Success(MapToDto(orderServicePart));
+        }, cancellationToken);
     }
 
     public async Task<Result<OrderServicePartDto>> UpdateAsync(
         int id,
         UpdateOrderServicePartRequest request,
+        int currentUserId,
         CancellationToken cancellationToken = default)
     {
         var orderServicePartRepository = _unitOfWork.Repository<OrderServicePart>();
@@ -278,12 +300,23 @@ public class OrderServicePartService : IOrderServicePartService
             partRepository.Update(newPart);
         }
 
+        await _auditLogger.LogAsync(
+            currentUserId,
+            UpdateAuditActionTypeName,
+            OrderServicePartEntityName,
+            orderServicePart.OrderServicePartId,
+            $"Part request {orderServicePart.OrderServicePartId} updated for order service {newOrderServiceId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<OrderServicePartDto>.Success(MapToDto(orderServicePart));
     }
 
-    public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteAsync(
+        int id,
+        int currentUserId,
+        CancellationToken cancellationToken = default)
     {
         var orderServicePartRepository = _unitOfWork.Repository<OrderServicePart>();
         var orderServicePart = await orderServicePartRepository.GetByIdAsync(id, cancellationToken);
@@ -306,6 +339,15 @@ public class OrderServicePartService : IOrderServicePartService
         }
 
         orderServicePartRepository.Remove(orderServicePart);
+
+        await _auditLogger.LogAsync(
+            currentUserId,
+            DeleteAuditActionTypeName,
+            OrderServicePartEntityName,
+            orderServicePart.OrderServicePartId,
+            $"Part request {orderServicePart.OrderServicePartId} removed from order service {orderServicePart.OrderServiceId}.",
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
