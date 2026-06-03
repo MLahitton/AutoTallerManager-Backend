@@ -156,12 +156,71 @@ public class DashboardService : IDashboardService
             new[] { CancelledStatusName, VoidedStatusName, CompletedStatusName },
             cancellationToken);
 
-        var activeServiceOrderIds = serviceOrders
+        var activeServiceOrders = serviceOrders
             .Where(x => !blockedStatusIds.Contains(x.OrderStatusId))
             .OrderByDescending(x => x.EntryDate)
             .ThenByDescending(x => x.ServiceOrderId)
+            .ToList();
+
+        var activeServiceOrderIds = activeServiceOrders
             .Select(x => x.ServiceOrderId)
             .ToList();
+
+        var orderServicesByServiceOrderId = orderServices
+            .GroupBy(x => x.ServiceOrderId)
+            .ToDictionary(x => x.Key, x => x.ToList());
+
+        var previewOrders = activeServiceOrders
+            .Take(5)
+            .ToList();
+
+        IReadOnlyList<MechanicDashboardActiveOrderDto> activeOrdersPreview = Array.Empty<MechanicDashboardActiveOrderDto>();
+        if (previewOrders.Count > 0)
+        {
+            var previewVehicleIds = previewOrders
+                .Select(x => x.VehicleId)
+                .Distinct()
+                .ToList();
+
+            var previewOrderStatusIds = previewOrders
+                .Select(x => x.OrderStatusId)
+                .Distinct()
+                .ToList();
+
+            var vehicles = await _unitOfWork.Repository<Vehicle>().FindAsync(
+                x => previewVehicleIds.Contains(x.VehicleId),
+                cancellationToken);
+
+            var orderStatuses = await _unitOfWork.Repository<OrderStatus>().FindAsync(
+                x => previewOrderStatusIds.Contains(x.OrderStatusId),
+                cancellationToken);
+
+            var vehicleById = vehicles.ToDictionary(x => x.VehicleId, x => x);
+            var orderStatusById = orderStatuses.ToDictionary(x => x.OrderStatusId, x => x);
+
+            activeOrdersPreview = previewOrders
+                .Select(x =>
+                {
+                    vehicleById.TryGetValue(x.VehicleId, out var vehicle);
+                    orderStatusById.TryGetValue(x.OrderStatusId, out var orderStatus);
+                    orderServicesByServiceOrderId.TryGetValue(x.ServiceOrderId, out var assignedOrderServices);
+
+                    assignedOrderServices ??= new List<OrderService>();
+
+                    return new MechanicDashboardActiveOrderDto
+                    {
+                        ServiceOrderId = x.ServiceOrderId,
+                        VehicleId = x.VehicleId,
+                        VehiclePlate = vehicle?.Plate,
+                        OrderStatusName = orderStatus?.Name,
+                        EntryDate = x.EntryDate,
+                        EstimatedDeliveryDate = x.EstimatedDeliveryDate,
+                        AssignedServicesCount = assignedOrderServices.Count,
+                        PendingWorkReportsCount = assignedOrderServices.Count(y => string.IsNullOrWhiteSpace(y.WorkPerformed))
+                    };
+                })
+                .ToList();
+        }
 
         var requestedPartsPendingApproval = orderServiceIds.Count == 0
             ? 0
@@ -175,7 +234,8 @@ public class DashboardService : IDashboardService
             ActiveOrders = activeServiceOrderIds.Count,
             PendingWorkReports = pendingWorkReports,
             RequestedPartsPendingApproval = requestedPartsPendingApproval,
-            ActiveServiceOrderIds = activeServiceOrderIds
+            ActiveServiceOrderIds = activeServiceOrderIds,
+            ActiveOrdersPreview = activeOrdersPreview
         });
     }
 

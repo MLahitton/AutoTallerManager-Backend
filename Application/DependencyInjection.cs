@@ -8,6 +8,7 @@ using Application.Features.Addresses;
 using Application.Features.CardTypes;
 using Application.Features.Catalogs;
 using Application.Features.Cities;
+using Application.Features.ClientApprovals;
 using Application.Features.ClientVehicleFlows;
 using Application.Features.Countries;
 using Application.Features.Bootstrap;
@@ -130,6 +131,7 @@ public static class DependencyInjection
         services.AddScoped<IStaffService, StaffService>();
         services.AddScoped<IDevelopmentAdminBootstrapService, DevelopmentAdminBootstrapService>();
         services.AddScoped<ICatalogService, CatalogService>();
+        services.AddScoped<IClientApprovalService, ClientApprovalService>();
         services.AddScoped<IClientVehicleFlowService, ClientVehicleFlowService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IReportService, ReportService>();

@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using Application.Features.ServiceExecution;
+using Application.Features.ClientApprovals;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,11 +10,11 @@ namespace Api.Controllers;
 [Authorize(Roles = "Client")]
 public class ClientApprovalsController : BaseApiController
 {
-    private readonly IServiceExecutionService _serviceExecutionService;
+    private readonly IClientApprovalService _clientApprovalService;
 
-    public ClientApprovalsController(IServiceExecutionService serviceExecutionService)
+    public ClientApprovalsController(IClientApprovalService clientApprovalService)
     {
-        _serviceExecutionService = serviceExecutionService;
+        _clientApprovalService = clientApprovalService;
     }
 
     [HttpGet("pending-approvals")]
@@ -25,56 +25,56 @@ public class ClientApprovalsController : BaseApiController
             return Unauthorized();
         }
 
-        var result = await _serviceExecutionService.GetClientPendingApprovalsAsync(currentPersonId, cancellationToken);
+        var result = await _clientApprovalService.GetPendingApprovalsAsync(currentPersonId, cancellationToken);
         return FromResult(result, approvals => Ok(approvals));
     }
 
-    [HttpPost("approvals/order-services/{id:int}/approve")]
-    public async Task<IActionResult> ApproveOrderService(int id, CancellationToken cancellationToken)
+    [HttpPost("order-services/{orderServiceId:int}/approve")]
+    public async Task<IActionResult> ApproveOrderService(int orderServiceId, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentPersonId(out var currentPersonId))
         {
             return Unauthorized();
         }
 
-        var result = await _serviceExecutionService.ApproveOrderServiceAsync(id, currentPersonId, cancellationToken);
-        return FromResult(result, execution => Ok(execution));
+        var result = await _clientApprovalService.ApproveOrderServiceAsync(orderServiceId, currentPersonId, cancellationToken);
+        return FromResult(result, approval => Ok(approval));
     }
 
-    [HttpPost("approvals/order-services/{id:int}/reject")]
-    public async Task<IActionResult> RejectOrderService(int id, CancellationToken cancellationToken)
+    [HttpPost("order-services/{orderServiceId:int}/reject")]
+    public async Task<IActionResult> RejectOrderService(int orderServiceId, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentPersonId(out var currentPersonId))
         {
             return Unauthorized();
         }
 
-        var result = await _serviceExecutionService.RejectOrderServiceAsync(id, currentPersonId, cancellationToken);
-        return FromResult(result, execution => Ok(execution));
+        var result = await _clientApprovalService.RejectOrderServiceAsync(orderServiceId, currentPersonId, cancellationToken);
+        return FromResult(result, approval => Ok(approval));
     }
 
-    [HttpPost("approvals/order-service-parts/{id:int}/approve")]
-    public async Task<IActionResult> ApproveOrderServicePart(int id, CancellationToken cancellationToken)
+    [HttpPost("order-service-parts/{orderServicePartId:int}/approve")]
+    public async Task<IActionResult> ApproveOrderServicePart(int orderServicePartId, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentPersonId(out var currentPersonId))
         {
             return Unauthorized();
         }
 
-        var result = await _serviceExecutionService.ClientApproveOrderServicePartAsync(id, currentPersonId, cancellationToken);
-        return FromResult(result, execution => Ok(execution));
+        var result = await _clientApprovalService.ApproveOrderServicePartAsync(orderServicePartId, currentPersonId, cancellationToken);
+        return FromResult(result, approval => Ok(approval));
     }
 
-    [HttpPost("approvals/order-service-parts/{id:int}/reject")]
-    public async Task<IActionResult> RejectOrderServicePart(int id, CancellationToken cancellationToken)
+    [HttpPost("order-service-parts/{orderServicePartId:int}/reject")]
+    public async Task<IActionResult> RejectOrderServicePart(int orderServicePartId, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentPersonId(out var currentPersonId))
         {
             return Unauthorized();
         }
 
-        var result = await _serviceExecutionService.ClientRejectOrderServicePartAsync(id, currentPersonId, cancellationToken);
-        return FromResult(result, execution => Ok(execution));
+        var result = await _clientApprovalService.RejectOrderServicePartAsync(orderServicePartId, currentPersonId, cancellationToken);
+        return FromResult(result, approval => Ok(approval));
     }
 
     private bool TryGetCurrentPersonId(out int personId)

@@ -48,6 +48,11 @@ public abstract class BaseApiController : ControllerBase
             return Conflict(body);
         }
 
+        if (EndsWith(error.Code, "Forbidden"))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, body);
+        }
+
         return StatusCode(StatusCodes.Status500InternalServerError, body);
     }
 

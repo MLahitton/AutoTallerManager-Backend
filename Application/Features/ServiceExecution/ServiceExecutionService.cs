@@ -60,8 +60,54 @@ public class ServiceExecutionService : IServiceExecutionService
             x => serviceOrderIds.Contains(x.ServiceOrderId),
             cancellationToken);
 
+        if (serviceOrders.Count == 0)
+        {
+            return Result<IReadOnlyList<MechanicAssignedServiceDto>>.Success(Array.Empty<MechanicAssignedServiceDto>());
+        }
+
+        var vehicleIds = serviceOrders
+            .Select(x => x.VehicleId)
+            .Distinct()
+            .ToList();
+
+        var orderStatusIds = serviceOrders
+            .Select(x => x.OrderStatusId)
+            .Distinct()
+            .ToList();
+
+        var serviceTypeIds = orderServices
+            .Select(x => x.ServiceTypeId)
+            .Distinct()
+            .ToList();
+
+        var specialtyIds = mechanicAssignments
+            .Select(x => x.SpecialtyId)
+            .Distinct()
+            .ToList();
+
+        var vehicles = await _unitOfWork.Repository<Vehicle>().FindAsync(
+            x => vehicleIds.Contains(x.VehicleId),
+            cancellationToken);
+
+        var orderStatuses = await _unitOfWork.Repository<OrderStatus>().FindAsync(
+            x => orderStatusIds.Contains(x.OrderStatusId),
+            cancellationToken);
+
+        var serviceTypes = await _unitOfWork.Repository<ServiceType>().FindAsync(
+            x => serviceTypeIds.Contains(x.ServiceTypeId),
+            cancellationToken);
+
+        var specialties = await _unitOfWork.Repository<MechanicSpecialty>().FindAsync(
+            x => specialtyIds.Contains(x.SpecialtyId),
+            cancellationToken);
+
         var orderServiceById = orderServices.ToDictionary(x => x.OrderServiceId, x => x);
         var serviceOrderById = serviceOrders.ToDictionary(x => x.ServiceOrderId, x => x);
+        var vehicleById = vehicles.ToDictionary(x => x.VehicleId, x => x);
+        var orderStatusById = orderStatuses.ToDictionary(x => x.OrderStatusId, x => x);
+        var serviceTypeById = serviceTypes.ToDictionary(x => x.ServiceTypeId, x => x);
+        var specialtyById = specialties.ToDictionary(x => x.SpecialtyId, x => x);
+        var customerByServiceOrderId = await GetCustomerSummariesByServiceOrderIdAsync(serviceOrders, cancellationToken);
 
         var result = mechanicAssignments
             .Where(x => orderServiceById.ContainsKey(x.OrderServiceId))
@@ -77,18 +123,35 @@ public class ServiceExecutionService : IServiceExecutionService
             .Select(x =>
             {
                 var serviceOrder = serviceOrderById[x.OrderService.ServiceOrderId];
+                vehicleById.TryGetValue(serviceOrder.VehicleId, out var vehicle);
+                orderStatusById.TryGetValue(serviceOrder.OrderStatusId, out var orderStatus);
+                serviceTypeById.TryGetValue(x.OrderService.ServiceTypeId, out var serviceType);
+                specialtyById.TryGetValue(x.Assignment.SpecialtyId, out var specialty);
+                customerByServiceOrderId.TryGetValue(serviceOrder.ServiceOrderId, out var customer);
+
                 return new MechanicAssignedServiceDto
                 {
+                    MechanicAssignmentId = x.Assignment.MechanicAssignmentId,
                     OrderServiceId = x.OrderService.OrderServiceId,
                     ServiceOrderId = x.OrderService.ServiceOrderId,
                     VehicleId = serviceOrder.VehicleId,
                     ServiceTypeId = x.OrderService.ServiceTypeId,
+                    OrderStatusId = serviceOrder.OrderStatusId,
+                    OrderStatusName = orderStatus?.Name,
+                    VehiclePlate = vehicle?.Plate,
+                    VehicleVin = vehicle?.VIN,
+                    VehicleYear = vehicle?.Year,
+                    VehicleColor = vehicle?.Color,
+                    ServiceTypeName = serviceType?.Name,
                     Description = x.OrderService.Description,
                     WorkPerformed = x.OrderService.WorkPerformed,
                     LaborCost = x.OrderService.LaborCost,
                     CustomerApproved = x.OrderService.CustomerApproved,
                     ApprovalDate = x.OrderService.ApprovalDate,
-                    SpecialtyId = x.Assignment.SpecialtyId
+                    SpecialtyId = x.Assignment.SpecialtyId,
+                    SpecialtyName = specialty?.Name,
+                    CustomerName = customer?.Name,
+                    CustomerDocumentNumber = customer?.DocumentNumber
                 };
             })
             .ToList();
@@ -136,18 +199,71 @@ public class ServiceExecutionService : IServiceExecutionService
             new[] { CancelledStatusName, VoidedStatusName, CompletedStatusName },
             cancellationToken);
 
-        var result = serviceOrders
+        var activeServiceOrders = serviceOrders
             .Where(x => !blockedOrderStatusIds.Contains(x.OrderStatusId))
             .OrderByDescending(x => x.EntryDate)
             .ThenByDescending(x => x.ServiceOrderId)
-            .Select(x => new MechanicActiveOrderDto
+            .ToList();
+
+        if (activeServiceOrders.Count == 0)
+        {
+            return Result<IReadOnlyList<MechanicActiveOrderDto>>.Success(Array.Empty<MechanicActiveOrderDto>());
+        }
+
+        var vehicleIds = activeServiceOrders
+            .Select(x => x.VehicleId)
+            .Distinct()
+            .ToList();
+
+        var orderStatusIds = activeServiceOrders
+            .Select(x => x.OrderStatusId)
+            .Distinct()
+            .ToList();
+
+        var vehicles = await _unitOfWork.Repository<Vehicle>().FindAsync(
+            x => vehicleIds.Contains(x.VehicleId),
+            cancellationToken);
+
+        var orderStatuses = await _unitOfWork.Repository<OrderStatus>().FindAsync(
+            x => orderStatusIds.Contains(x.OrderStatusId),
+            cancellationToken);
+
+        var orderServicesByServiceOrderId = orderServices
+            .GroupBy(x => x.ServiceOrderId)
+            .ToDictionary(x => x.Key, x => x.ToList());
+
+        var vehicleById = vehicles.ToDictionary(x => x.VehicleId, x => x);
+        var orderStatusById = orderStatuses.ToDictionary(x => x.OrderStatusId, x => x);
+        var customerByServiceOrderId = await GetCustomerSummariesByServiceOrderIdAsync(activeServiceOrders, cancellationToken);
+
+        var result = activeServiceOrders
+            .Select(x =>
             {
-                ServiceOrderId = x.ServiceOrderId,
-                VehicleId = x.VehicleId,
-                OrderStatusId = x.OrderStatusId,
-                EntryDate = x.EntryDate,
-                EstimatedDeliveryDate = x.EstimatedDeliveryDate,
-                GeneralDescription = x.GeneralDescription
+                vehicleById.TryGetValue(x.VehicleId, out var vehicle);
+                orderStatusById.TryGetValue(x.OrderStatusId, out var orderStatus);
+                customerByServiceOrderId.TryGetValue(x.ServiceOrderId, out var customer);
+                orderServicesByServiceOrderId.TryGetValue(x.ServiceOrderId, out var assignedOrderServices);
+
+                assignedOrderServices ??= new List<OrderService>();
+
+                return new MechanicActiveOrderDto
+                {
+                    ServiceOrderId = x.ServiceOrderId,
+                    VehicleId = x.VehicleId,
+                    OrderStatusId = x.OrderStatusId,
+                    OrderStatusName = orderStatus?.Name,
+                    VehiclePlate = vehicle?.Plate,
+                    VehicleVin = vehicle?.VIN,
+                    VehicleYear = vehicle?.Year,
+                    VehicleColor = vehicle?.Color,
+                    AssignedServicesCount = assignedOrderServices.Count,
+                    PendingWorkReportsCount = assignedOrderServices.Count(y => string.IsNullOrWhiteSpace(y.WorkPerformed)),
+                    CustomerName = customer?.Name,
+                    CustomerDocumentNumber = customer?.DocumentNumber,
+                    EntryDate = x.EntryDate,
+                    EstimatedDeliveryDate = x.EstimatedDeliveryDate,
+                    GeneralDescription = x.GeneralDescription
+                };
             })
             .ToList();
 
@@ -888,6 +1004,71 @@ public class ServiceExecutionService : IServiceExecutionService
         return Result<ServiceExecutionResultDto>.Success(SuccessResult(orderServicePartId, "OrderServicePart", approve ? "Approve" : "Reject"));
     }
 
+    private async Task<IReadOnlyDictionary<int, CustomerSummary>> GetCustomerSummariesByServiceOrderIdAsync(
+        IReadOnlyList<ServiceOrder> serviceOrders,
+        CancellationToken cancellationToken)
+    {
+        if (serviceOrders.Count == 0)
+        {
+            return new Dictionary<int, CustomerSummary>();
+        }
+
+        var vehicleIds = serviceOrders
+            .Select(x => x.VehicleId)
+            .Distinct()
+            .ToList();
+
+        var ownerHistories = await _unitOfWork.Repository<VehicleOwnerHistory>().FindAsync(
+            x => vehicleIds.Contains(x.VehicleId),
+            cancellationToken);
+
+        if (ownerHistories.Count == 0)
+        {
+            return new Dictionary<int, CustomerSummary>();
+        }
+
+        var personIds = ownerHistories
+            .Select(x => x.PersonId)
+            .Distinct()
+            .ToList();
+
+        var people = await _unitOfWork.Repository<Person>().FindAsync(
+            x => personIds.Contains(x.PersonId),
+            cancellationToken);
+
+        var peopleById = people.ToDictionary(x => x.PersonId, x => x);
+        var summaries = new Dictionary<int, CustomerSummary>();
+
+        foreach (var serviceOrder in serviceOrders)
+        {
+            var ownerHistory = ownerHistories
+                .Where(x =>
+                    x.VehicleId == serviceOrder.VehicleId &&
+                    x.StartDate <= serviceOrder.EntryDate &&
+                    (x.EndDate is null || x.EndDate >= serviceOrder.EntryDate))
+                .OrderByDescending(x => x.StartDate)
+                .ThenByDescending(x => x.VehicleOwnerHistoryId)
+                .FirstOrDefault();
+
+            ownerHistory ??= ownerHistories
+                .Where(x => x.VehicleId == serviceOrder.VehicleId && x.EndDate is null)
+                .OrderByDescending(x => x.StartDate)
+                .ThenByDescending(x => x.VehicleOwnerHistoryId)
+                .FirstOrDefault();
+
+            if (ownerHistory is null || !peopleById.TryGetValue(ownerHistory.PersonId, out var person))
+            {
+                continue;
+            }
+
+            summaries[serviceOrder.ServiceOrderId] = new CustomerSummary(
+                BuildFullName(person),
+                person.DocumentNumber);
+        }
+
+        return summaries;
+    }
+
     private async Task<bool> IsServiceOrderBlockedAsync(ServiceOrder serviceOrder, CancellationToken cancellationToken)
     {
         var orderStatus = await _unitOfWork.Repository<OrderStatus>().GetByIdAsync(serviceOrder.OrderStatusId, cancellationToken);
@@ -981,6 +1162,22 @@ public class ServiceExecutionService : IServiceExecutionService
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
+    private static string? BuildFullName(Person person)
+    {
+        var parts = new[]
+        {
+            person.FirstName,
+            person.MiddleName,
+            person.LastName,
+            person.SecondLastName
+        }
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!.Trim());
+
+        var fullName = string.Join(" ", parts);
+        return string.IsNullOrWhiteSpace(fullName) ? null : fullName;
+    }
+
     private static ServiceExecutionResultDto SuccessResult(int id, string entity, string action)
     {
         return new ServiceExecutionResultDto
@@ -991,4 +1188,6 @@ public class ServiceExecutionService : IServiceExecutionService
             Success = true
         };
     }
+
+    private sealed record CustomerSummary(string? Name, string? DocumentNumber);
 }
