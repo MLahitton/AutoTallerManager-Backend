@@ -1,6 +1,6 @@
-namespace Domain.Entities;
+namespace Application.Features.InventoryBusiness.Dtos;
 
-public class PartPurchase
+public class InventoryPurchaseCancellationResultDto
 {
     public int PartPurchaseId { get; set; }
     public int SupplierId { get; set; }
@@ -10,7 +10,6 @@ public class PartPurchase
     public DateTime? CancelledAt { get; set; }
     public string? CancellationReason { get; set; }
     public int? CancelledByUserId { get; set; }
-
-    public Supplier Supplier { get; set; } = null!;
-    public ICollection<PartPurchaseDetail> PartPurchaseDetails { get; set; } = new List<PartPurchaseDetail>();
+    public IReadOnlyList<InventoryPurchaseCancellationPartDto> AffectedParts { get; set; } = Array.Empty<InventoryPurchaseCancellationPartDto>();
+    public string Message { get; set; } = string.Empty;
 }

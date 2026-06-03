@@ -95,6 +95,11 @@ public class PartPurchaseService : IPartPurchaseService
             return Result<PartPurchaseDto>.Failure(PartPurchaseErrors.NotFound);
         }
 
+        if (partPurchase.IsCancelled)
+        {
+            return Result<PartPurchaseDto>.Failure(PartPurchaseErrors.CannotModifyCancelledPurchaseConflict);
+        }
+
         var supplierId = request?.SupplierId ?? 0;
         var purchaseDate = request?.PurchaseDate ?? default;
 
@@ -134,6 +139,11 @@ public class PartPurchaseService : IPartPurchaseService
         if (partPurchase is null)
         {
             return Result.Failure(PartPurchaseErrors.NotFound);
+        }
+
+        if (partPurchase.IsCancelled)
+        {
+            return Result.Failure(PartPurchaseErrors.CannotDeleteCancelledPurchaseConflict);
         }
 
         var partPurchaseDetailRepository = _unitOfWork.Repository<PartPurchaseDetail>();

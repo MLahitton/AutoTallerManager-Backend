@@ -10,4 +10,6 @@ public static class PartPurchaseErrors
     public static readonly Error SupplierInactive = new("PartPurchases.SupplierInactive", "Supplier is inactive.");
     public static readonly Error PurchaseDateInvalid = new("PartPurchases.PurchaseDateInvalid", "PurchaseDate is invalid.");
     public static readonly Error InUse = new("PartPurchases.InUse", "Part purchase is assigned to one or more records.");
+    public static readonly Error CannotModifyCancelledPurchaseConflict = new("PartPurchases.CannotModifyCancelledPurchaseConflict", "Cancelled purchases cannot be modified.");
+    public static readonly Error CannotDeleteCancelledPurchaseConflict = new("PartPurchases.CannotDeleteCancelledPurchaseConflict", "Cancelled purchases cannot be deleted.");
 }

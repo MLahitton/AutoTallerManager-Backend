@@ -1,5 +1,8 @@
 using System.Security.Claims;
+using Application.Common.Results;
 using Application.Features.InventoryBusiness;
+using Application.Features.InventoryBusiness.Dtos;
+using Application.Features.InventoryBusiness.Errors;
 using Application.Features.InventoryBusiness.Requests;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -25,6 +28,28 @@ public class InventoryBusinessController : BaseApiController
     {
         var result = await _inventoryBusinessService.RegisterPurchaseAsync(request, cancellationToken);
         return FromResult(result, purchase => Ok(purchase));
+    }
+
+    [HttpPost("purchases/{purchaseId:int}/cancel")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CancelPurchase(
+        int purchaseId,
+        [FromBody] CancelInventoryPurchaseRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            var invalidUserResult = Result<InventoryPurchaseCancellationResultDto>.Failure(InventoryBusinessErrors.CurrentUserInvalid);
+            return FromResult(invalidUserResult, cancellation => Ok(cancellation));
+        }
+
+        var result = await _inventoryBusinessService.CancelPurchaseAsync(
+            purchaseId,
+            request,
+            currentUserId,
+            cancellationToken);
+
+        return FromResult(result, cancellation => Ok(cancellation));
     }
 
     [HttpGet("low-stock")]
@@ -57,5 +82,13 @@ public class InventoryBusinessController : BaseApiController
     {
         var result = await _inventoryBusinessService.GetSummaryAsync(cancellationToken);
         return FromResult(result, summary => Ok(summary));
+    }
+
+    private bool TryGetCurrentUserId(out int userId)
+    {
+        userId = 0;
+
+        var userIdClaim = User.FindFirstValue("userId");
+        return int.TryParse(userIdClaim, out userId) && userId > 0;
     }
 }

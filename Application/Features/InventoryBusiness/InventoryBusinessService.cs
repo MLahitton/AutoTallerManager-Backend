@@ -9,7 +9,9 @@ namespace Application.Features.InventoryBusiness;
 
 public class InventoryBusinessService : IInventoryBusinessService
 {
+    private const int CancellationReasonMaxLength = 500;
     private const string UpdateAuditActionTypeName = "UPDATE";
+    private const string CancelAuditActionTypeName = "CANCEL";
 
     private readonly IUnitOfWork _unitOfWork;
 
@@ -102,7 +104,6 @@ public class InventoryBusinessService : IInventoryBusinessService
         }
 
         purchase.Total = total;
-        purchaseRepository.Update(purchase);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -116,6 +117,139 @@ public class InventoryBusinessService : IInventoryBusinessService
                 .OrderBy(x => x.PartPurchaseDetailId)
                 .Select(MapPurchaseDetailResult)
                 .ToList()
+        });
+    }
+
+    public async Task<Result<InventoryPurchaseCancellationResultDto>> CancelPurchaseAsync(
+        int purchaseId,
+        CancelInventoryPurchaseRequest request,
+        int currentUserId,
+        CancellationToken cancellationToken = default)
+    {
+        if (purchaseId <= 0)
+        {
+            return Result<InventoryPurchaseCancellationResultDto>.Failure(InventoryBusinessErrors.PurchaseIdInvalid);
+        }
+
+        if (currentUserId <= 0)
+        {
+            return Result<InventoryPurchaseCancellationResultDto>.Failure(InventoryBusinessErrors.CurrentUserInvalid);
+        }
+
+        var userExists = await _unitOfWork.Repository<User>().ExistsAsync(
+            x => x.UserId == currentUserId,
+            cancellationToken);
+
+        if (!userExists)
+        {
+            return Result<InventoryPurchaseCancellationResultDto>.Failure(InventoryBusinessErrors.CurrentUserInvalid);
+        }
+
+        var reason = NormalizeOptionalText(request?.Reason);
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return Result<InventoryPurchaseCancellationResultDto>.Failure(InventoryBusinessErrors.CancellationReasonRequired);
+        }
+
+        if (reason.Length > CancellationReasonMaxLength)
+        {
+            return Result<InventoryPurchaseCancellationResultDto>.Failure(InventoryBusinessErrors.CancellationReasonTooLong);
+        }
+
+        var purchaseRepository = _unitOfWork.Repository<PartPurchase>();
+        var purchase = await purchaseRepository.GetByIdAsync(purchaseId, cancellationToken);
+
+        if (purchase is null)
+        {
+            return Result<InventoryPurchaseCancellationResultDto>.Failure(InventoryBusinessErrors.PurchaseNotFound);
+        }
+
+        if (purchase.IsCancelled)
+        {
+            return Result<InventoryPurchaseCancellationResultDto>.Failure(InventoryBusinessErrors.PurchaseAlreadyCancelledConflict);
+        }
+
+        var purchaseDetails = await _unitOfWork.Repository<PartPurchaseDetail>().FindAsync(
+            x => x.PartPurchaseId == purchaseId,
+            cancellationToken);
+
+        if (purchaseDetails.Count == 0)
+        {
+            return Result<InventoryPurchaseCancellationResultDto>.Failure(InventoryBusinessErrors.PurchaseHasNoDetails);
+        }
+
+        var reversedQuantityByPartId = purchaseDetails
+            .GroupBy(x => x.PartId)
+            .ToDictionary(x => x.Key, x => x.Sum(y => y.Quantity));
+
+        var partIds = reversedQuantityByPartId.Keys.ToArray();
+        var partRepository = _unitOfWork.Repository<Part>();
+        var parts = await partRepository.FindAsync(
+            x => partIds.Contains(x.PartId),
+            cancellationToken);
+        var partById = parts.ToDictionary(x => x.PartId);
+
+        foreach (var partId in partIds)
+        {
+            if (!partById.TryGetValue(partId, out var part))
+            {
+                return Result<InventoryPurchaseCancellationResultDto>.Failure(InventoryBusinessErrors.PartNotFound);
+            }
+
+            if (part.Stock - reversedQuantityByPartId[partId] < 0)
+            {
+                return Result<InventoryPurchaseCancellationResultDto>.Failure(InventoryBusinessErrors.PurchaseCancellationWouldMakeStockNegativeInvalid);
+            }
+        }
+
+        var affectedParts = new List<InventoryPurchaseCancellationPartDto>();
+        foreach (var partId in partIds.OrderBy(x => x))
+        {
+            var part = partById[partId];
+            var reversedQuantity = reversedQuantityByPartId[partId];
+            var previousStock = part.Stock;
+
+            part.Stock -= reversedQuantity;
+            partRepository.Update(part);
+
+            affectedParts.Add(new InventoryPurchaseCancellationPartDto
+            {
+                PartId = part.PartId,
+                PartName = part.Description,
+                PreviousStock = previousStock,
+                ReversedQuantity = reversedQuantity,
+                NewStock = part.Stock
+            });
+        }
+
+        var cancelledAt = DateTime.UtcNow;
+        purchase.IsCancelled = true;
+        purchase.CancelledAt = cancelledAt;
+        purchase.CancellationReason = reason;
+        purchase.CancelledByUserId = currentUserId;
+        purchaseRepository.Update(purchase);
+
+        await TryCreatePurchaseCancellationAuditAsync(
+            currentUserId,
+            purchase.PartPurchaseId,
+            reason,
+            affectedParts.Count,
+            cancellationToken);
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result<InventoryPurchaseCancellationResultDto>.Success(new InventoryPurchaseCancellationResultDto
+        {
+            PartPurchaseId = purchase.PartPurchaseId,
+            SupplierId = purchase.SupplierId,
+            PurchaseDate = purchase.PurchaseDate,
+            Total = purchase.Total,
+            IsCancelled = purchase.IsCancelled,
+            CancelledAt = purchase.CancelledAt,
+            CancellationReason = purchase.CancellationReason,
+            CancelledByUserId = purchase.CancelledByUserId,
+            AffectedParts = affectedParts,
+            Message = $"Purchase {purchase.PartPurchaseId} cancelled successfully."
         });
     }
 
@@ -249,6 +383,35 @@ public class InventoryBusinessService : IInventoryBusinessService
             AffectedEntity = "Parts",
             AffectedRecordId = partId,
             Description = description,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _unitOfWork.Repository<Audit>().AddAsync(audit, cancellationToken);
+    }
+
+    private async Task TryCreatePurchaseCancellationAuditAsync(
+        int currentUserId,
+        int purchaseId,
+        string reason,
+        int affectedPartCount,
+        CancellationToken cancellationToken)
+    {
+        var auditActionTypes = await _unitOfWork.Repository<AuditActionType>().GetAllAsync(cancellationToken);
+        var updateActionType = auditActionTypes.FirstOrDefault(x =>
+            x.Name.Equals(CancelAuditActionTypeName, StringComparison.OrdinalIgnoreCase));
+
+        if (updateActionType is null)
+        {
+            return;
+        }
+
+        var audit = new Audit
+        {
+            UserId = currentUserId,
+            AuditActionTypeId = updateActionType.AuditActionTypeId,
+            AffectedEntity = "PartPurchase",
+            AffectedRecordId = purchaseId,
+            Description = $"Purchase {purchaseId} cancelled. Reason: {reason}. Stock reversed for {affectedPartCount} parts.",
             CreatedAt = DateTime.UtcNow
         };
 

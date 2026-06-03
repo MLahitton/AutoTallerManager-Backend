@@ -47,6 +47,45 @@ public class InvoiceDetailService : IInvoiceDetailService
         return Result<InvoiceDetailDto>.Success(MapToDto(invoiceDetail));
     }
 
+    public async Task<Result<InvoiceDetailsByInvoiceDto>> GetByInvoiceIdAsync(
+        int invoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        if (invoiceId <= 0)
+        {
+            return Result<InvoiceDetailsByInvoiceDto>.Failure(InvoiceDetailErrors.InvoiceIdInvalid);
+        }
+
+        var invoiceRepository = _unitOfWork.Repository<Invoice>();
+        var invoice = await invoiceRepository.GetByIdAsync(invoiceId, cancellationToken);
+
+        if (invoice is null)
+        {
+            return Result<InvoiceDetailsByInvoiceDto>.Failure(InvoiceDetailErrors.InvoiceNotFound);
+        }
+
+        var invoiceDetailRepository = _unitOfWork.Repository<InvoiceDetail>();
+        var invoiceDetails = await invoiceDetailRepository.FindAsync(
+            x => x.InvoiceId == invoiceId,
+            cancellationToken);
+
+        var result = new InvoiceDetailsByInvoiceDto
+        {
+            InvoiceId = invoice.InvoiceId,
+            InvoiceNumber = invoice.InvoiceNumber,
+            InvoiceStatusId = invoice.InvoiceStatusId,
+            Subtotal = invoice.Subtotal,
+            Tax = invoice.Tax,
+            Total = invoice.Total,
+            Details = invoiceDetails
+                .OrderBy(x => x.InvoiceDetailId)
+                .Select(MapToLineDto)
+                .ToList()
+        };
+
+        return Result<InvoiceDetailsByInvoiceDto>.Success(result);
+    }
+
     public async Task<Result<InvoiceDetailDto>> CreateAsync(
         CreateInvoiceDetailRequest request,
         CancellationToken cancellationToken = default)
@@ -251,6 +290,20 @@ public class InvoiceDetailService : IInvoiceDetailService
         {
             InvoiceDetailId = invoiceDetail.InvoiceDetailId,
             InvoiceId = invoiceDetail.InvoiceId,
+            SourcePartId = invoiceDetail.SourcePartId,
+            Concept = invoiceDetail.Concept,
+            Quantity = invoiceDetail.Quantity,
+            UnitPrice = invoiceDetail.UnitPrice,
+            Subtotal = invoiceDetail.Subtotal,
+            LineType = invoiceDetail.LineType
+        };
+    }
+
+    private static InvoiceDetailLineDto MapToLineDto(InvoiceDetail invoiceDetail)
+    {
+        return new InvoiceDetailLineDto
+        {
+            InvoiceDetailId = invoiceDetail.InvoiceDetailId,
             SourcePartId = invoiceDetail.SourcePartId,
             Concept = invoiceDetail.Concept,
             Quantity = invoiceDetail.Quantity,

@@ -19,4 +19,12 @@ public static class InventoryBusinessErrors
     public static readonly Error StockWouldBeNegativeInvalid = new("InventoryBusiness.StockWouldBeNegativeInvalid", "Stock cannot become negative.");
     public static readonly Error ChangedByUserIdInvalid = new("InventoryBusiness.ChangedByUserIdInvalid", "ChangedByUserId must be greater than 0.");
     public static readonly Error ChangedByUserNotFound = new("InventoryBusiness.ChangedByUserNotFound", "Changed-by user was not found.");
+    public static readonly Error PurchaseIdInvalid = new("InventoryBusiness.PurchaseIdInvalid", "PurchaseId must be greater than 0.");
+    public static readonly Error PurchaseNotFound = new("InventoryBusiness.PurchaseNotFound", "Purchase was not found.");
+    public static readonly Error PurchaseAlreadyCancelledConflict = new("InventoryBusiness.PurchaseAlreadyCancelledConflict", "Purchase is already cancelled.");
+    public static readonly Error CancellationReasonRequired = new("InventoryBusiness.CancellationReasonRequired", "Cancellation reason is required.");
+    public static readonly Error CancellationReasonTooLong = new("InventoryBusiness.CancellationReasonTooLong", "Cancellation reason cannot exceed 500 characters.");
+    public static readonly Error PurchaseHasNoDetails = new("InventoryBusiness.PurchaseHasNoDetails", "Purchase has no details to reverse.");
+    public static readonly Error PurchaseCancellationWouldMakeStockNegativeInvalid = new("InventoryBusiness.PurchaseCancellationWouldMakeStockNegativeInvalid", "Purchase cancellation would make stock negative.");
+    public static readonly Error CurrentUserInvalid = new("InventoryBusiness.CurrentUserInvalid", "Current user is invalid.");
 }

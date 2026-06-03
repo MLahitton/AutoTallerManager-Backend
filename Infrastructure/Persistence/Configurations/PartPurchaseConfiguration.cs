@@ -25,6 +25,19 @@ public class PartPurchaseConfiguration : IEntityTypeConfiguration<PartPurchase>
             .HasPrecision(10, 2)
             .HasDefaultValue(0m);
 
+        builder.Property(x => x.IsCancelled)
+            .IsRequired()
+            .HasColumnType("tinyint(1)")
+            .HasDefaultValue(false);
+
+        builder.Property(x => x.CancelledAt)
+            .HasColumnType("datetime");
+
+        builder.Property(x => x.CancellationReason)
+            .HasMaxLength(500);
+
+        builder.Property(x => x.CancelledByUserId);
+
         builder.HasOne(x => x.Supplier)
             .WithMany(x => x.PartPurchases)
             .HasForeignKey(x => x.SupplierId)

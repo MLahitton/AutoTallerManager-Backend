@@ -65,6 +65,11 @@ public class PartPurchaseDetailService : IPartPurchaseDetailService
             return Result<PartPurchaseDetailDto>.Failure(PartPurchaseDetailErrors.PartPurchaseNotFound);
         }
 
+        if (partPurchase.IsCancelled)
+        {
+            return Result<PartPurchaseDetailDto>.Failure(PartPurchaseDetailErrors.CannotAddDetailToCancelledPurchaseConflict);
+        }
+
         var partRepository = _unitOfWork.Repository<Part>();
         var part = await partRepository.GetByIdAsync(partId, cancellationToken);
 
@@ -138,11 +143,38 @@ public class PartPurchaseDetailService : IPartPurchaseDetailService
         }
 
         var partPurchaseRepository = _unitOfWork.Repository<PartPurchase>();
-        var newPartPurchase = await partPurchaseRepository.GetByIdAsync(newPartPurchaseId, cancellationToken);
+        var oldPartPurchaseId = partPurchaseDetail.PartPurchaseId;
+        var currentPartPurchase = await partPurchaseRepository.GetByIdAsync(oldPartPurchaseId, cancellationToken);
 
-        if (newPartPurchase is null)
+        if (currentPartPurchase is null)
         {
             return Result<PartPurchaseDetailDto>.Failure(PartPurchaseDetailErrors.PartPurchaseNotFound);
+        }
+
+        if (currentPartPurchase.IsCancelled)
+        {
+            return Result<PartPurchaseDetailDto>.Failure(PartPurchaseDetailErrors.CannotModifyDetailFromCancelledPurchaseConflict);
+        }
+
+        PartPurchase newPartPurchase;
+        if (newPartPurchaseId == oldPartPurchaseId)
+        {
+            newPartPurchase = currentPartPurchase;
+        }
+        else
+        {
+            var loadedNewPartPurchase = await partPurchaseRepository.GetByIdAsync(newPartPurchaseId, cancellationToken);
+            if (loadedNewPartPurchase is null)
+            {
+                return Result<PartPurchaseDetailDto>.Failure(PartPurchaseDetailErrors.PartPurchaseNotFound);
+            }
+
+            if (loadedNewPartPurchase.IsCancelled)
+            {
+                return Result<PartPurchaseDetailDto>.Failure(PartPurchaseDetailErrors.CannotMoveDetailToCancelledPurchaseConflict);
+            }
+
+            newPartPurchase = loadedNewPartPurchase;
         }
 
         var partRepository = _unitOfWork.Repository<Part>();
@@ -183,7 +215,6 @@ public class PartPurchaseDetailService : IPartPurchaseDetailService
             return Result<PartPurchaseDetailDto>.Failure(PartPurchaseDetailErrors.DuplicatePartForPurchaseConflict);
         }
 
-        var oldPartPurchaseId = partPurchaseDetail.PartPurchaseId;
         var oldPartId = partPurchaseDetail.PartId;
         var oldQuantity = partPurchaseDetail.Quantity;
         var oldUnitPrice = partPurchaseDetail.UnitPrice;
@@ -213,11 +244,7 @@ public class PartPurchaseDetailService : IPartPurchaseDetailService
         PartPurchase? oldPartPurchase = null;
         if (newPartPurchaseId != oldPartPurchaseId)
         {
-            oldPartPurchase = await partPurchaseRepository.GetByIdAsync(oldPartPurchaseId, cancellationToken);
-            if (oldPartPurchase is null)
-            {
-                return Result<PartPurchaseDetailDto>.Failure(PartPurchaseDetailErrors.PartPurchaseNotFound);
-            }
+            oldPartPurchase = currentPartPurchase;
         }
 
         if (newPartPurchaseId == oldPartPurchaseId)
@@ -284,6 +311,19 @@ public class PartPurchaseDetailService : IPartPurchaseDetailService
             return Result.Failure(PartPurchaseDetailErrors.NotFound);
         }
 
+        var partPurchaseRepository = _unitOfWork.Repository<PartPurchase>();
+        var partPurchase = await partPurchaseRepository.GetByIdAsync(partPurchaseDetail.PartPurchaseId, cancellationToken);
+
+        if (partPurchase is null)
+        {
+            return Result.Failure(PartPurchaseDetailErrors.PartPurchaseNotFound);
+        }
+
+        if (partPurchase.IsCancelled)
+        {
+            return Result.Failure(PartPurchaseDetailErrors.CannotDeleteDetailFromCancelledPurchaseConflict);
+        }
+
         var partRepository = _unitOfWork.Repository<Part>();
         var part = await partRepository.GetByIdAsync(partPurchaseDetail.PartId, cancellationToken);
 
@@ -296,14 +336,6 @@ public class PartPurchaseDetailService : IPartPurchaseDetailService
         if (stockAfterRemoval < 0)
         {
             return Result.Failure(PartPurchaseDetailErrors.StockWouldBeNegativeInvalid);
-        }
-
-        var partPurchaseRepository = _unitOfWork.Repository<PartPurchase>();
-        var partPurchase = await partPurchaseRepository.GetByIdAsync(partPurchaseDetail.PartPurchaseId, cancellationToken);
-
-        if (partPurchase is null)
-        {
-            return Result.Failure(PartPurchaseDetailErrors.PartPurchaseNotFound);
         }
 
         var purchaseDetails = await partPurchaseDetailRepository.FindAsync(
