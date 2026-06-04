@@ -5,6 +5,7 @@ using Application.Common.Security;
 using Application.Features.Bootstrap;
 using Infrastructure;
 using Infrastructure.Persistence;
+using Infrastructure.Persistence.Seeders;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -102,6 +103,20 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+var seedDataEnabled = app.Configuration.GetValue<bool?>("SeedData:Enabled");
+if ((app.Environment.IsDevelopment() && seedDataEnabled != false) || seedDataEnabled == true)
+{
+    using var seedScope = app.Services.CreateScope();
+    var seedLogger = seedScope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("DatabaseSeeder");
+    var seedContext = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    seedLogger.LogInformation("Starting database seed.");
+    await DatabaseSeeder.SeedAsync(seedContext);
+    seedLogger.LogInformation("Database seed completed.");
+}
 
 if (app.Environment.IsDevelopment())
 {
