@@ -105,7 +105,9 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 var seedDataEnabled = app.Configuration.GetValue<bool?>("SeedData:Enabled");
-if ((app.Environment.IsDevelopment() && seedDataEnabled != false) || seedDataEnabled == true)
+var demoAccountsEnabled = app.Configuration.GetValue<bool>("SeedData:DemoAccountsEnabled");
+var shouldSeedData = (app.Environment.IsDevelopment() && seedDataEnabled != false) || seedDataEnabled == true;
+if (shouldSeedData || demoAccountsEnabled)
 {
     using var seedScope = app.Services.CreateScope();
     var seedLogger = seedScope.ServiceProvider
@@ -113,9 +115,21 @@ if ((app.Environment.IsDevelopment() && seedDataEnabled != false) || seedDataEna
         .CreateLogger("DatabaseSeeder");
     var seedContext = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    seedLogger.LogInformation("Starting database seed.");
-    await DatabaseSeeder.SeedAsync(seedContext);
-    seedLogger.LogInformation("Database seed completed.");
+    if (shouldSeedData)
+    {
+        seedLogger.LogInformation("Starting database seed.");
+        await DatabaseSeeder.SeedAsync(seedContext);
+        seedLogger.LogInformation("Database seed completed.");
+    }
+
+    if (demoAccountsEnabled)
+    {
+        var passwordHasher = seedScope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
+        seedLogger.LogInformation("Starting demo accounts seed.");
+        await DemoAccountsSeeder.SeedAsync(seedContext, passwordHasher);
+        seedLogger.LogInformation("Demo accounts seed completed.");
+    }
 }
 
 if (app.Environment.IsDevelopment())
