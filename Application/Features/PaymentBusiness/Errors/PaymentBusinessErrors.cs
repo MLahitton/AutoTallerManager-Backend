@@ -13,6 +13,8 @@ public static class PaymentBusinessErrors
     public static readonly Error PaymentStatusNotFound = new("PaymentBusiness.PaymentStatusNotFound", "Payment status was not found.");
     public static readonly Error CompletedStatusNotFound = new("PaymentBusiness.CompletedStatusNotFound", "Completed payment status was not found.");
     public static readonly Error RefundedStatusNotFound = new("PaymentBusiness.RefundedStatusNotFound", "Refunded payment status was not found.");
+    public static readonly Error PaidInvoiceStatusNotFound = new("PaymentBusiness.PaidInvoiceStatusNotFound", "Paid invoice status was not found.");
+    public static readonly Error IssuedInvoiceStatusNotFound = new("PaymentBusiness.IssuedInvoiceStatusNotFound", "Issued invoice status was not found.");
     public static readonly Error PaymentDateInvalid = new("PaymentBusiness.PaymentDateInvalid", "PaymentDate is invalid.");
     public static readonly Error AmountInvalid = new("PaymentBusiness.AmountInvalid", "Amount must be greater than 0.");
     public static readonly Error ReferenceTooLong = new("PaymentBusiness.ReferenceTooLong", "Reference cannot exceed 100 characters.");

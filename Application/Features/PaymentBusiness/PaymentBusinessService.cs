@@ -15,11 +15,15 @@ public class PaymentBusinessService : IPaymentBusinessService
     private const int AuthorizationCodeMaxLength = 100;
     private const string CompletedStatusName = "Completed";
     private const string RefundedStatusName = "Refunded";
+    private const string PaidInvoiceStatusName = "Paid";
+    private const string IssuedInvoiceStatusName = "Issued";
+    private const string CancelledInvoiceStatusName = "Cancelled";
     private const string CardPaymentMethodName = "Card";
     private const string ClientRoleName = "Client";
     private const string CreateAuditActionTypeName = "CREATE";
     private const string UpdateAuditActionTypeName = "UPDATE";
     private const string PaymentEntityName = "Payment";
+    private const string InvoiceEntityName = "Invoice";
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
@@ -89,18 +93,38 @@ public class PaymentBusinessService : IPaymentBusinessService
             return Result<RecordedPaymentDto>.Failure(paymentStatus.Error);
         }
 
-        if (IsStatusName(paymentStatus.Value!.Name, CompletedStatusName))
+        var isCompletedPayment = IsStatusName(paymentStatus.Value!.Name, CompletedStatusName);
+        var shouldMarkInvoiceAsPaid = false;
+        InvoiceStatus? paidInvoiceStatus = null;
+
+        if (isCompletedPayment)
         {
             var completedStatusIds = await GetPaymentStatusIdsByNameAsync(CompletedStatusName, cancellationToken);
+            if (completedStatusIds.Length == 0)
+            {
+                return Result<RecordedPaymentDto>.Failure(PaymentBusinessErrors.CompletedStatusNotFound);
+            }
+
             var completedPaidAmount = await GetPaidAmountByStatusIdsAsync(
                 invoiceId,
                 completedStatusIds,
                 excludePaymentId: null,
                 cancellationToken);
 
-            if (completedPaidAmount + amount > invoice.Total)
+            var completedPaidAmountIncludingPayment = completedPaidAmount + amount;
+            if (completedPaidAmountIncludingPayment > invoice.Total)
             {
                 return Result<RecordedPaymentDto>.Failure(PaymentBusinessErrors.CompletedPaymentsExceedInvoiceTotalConflict);
+            }
+
+            shouldMarkInvoiceAsPaid = IsInvoiceFullyPaid(completedPaidAmountIncludingPayment, invoice.Total);
+            if (shouldMarkInvoiceAsPaid)
+            {
+                paidInvoiceStatus = await ResolveInvoiceStatusByNameAsync(PaidInvoiceStatusName, cancellationToken);
+                if (paidInvoiceStatus is null)
+                {
+                    return Result<RecordedPaymentDto>.Failure(PaymentBusinessErrors.PaidInvoiceStatusNotFound);
+                }
             }
         }
 
@@ -147,6 +171,22 @@ public class PaymentBusinessService : IPaymentBusinessService
         return await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
         {
             await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+            if (shouldMarkInvoiceAsPaid &&
+                paidInvoiceStatus is not null &&
+                invoice.InvoiceStatusId != paidInvoiceStatus.InvoiceStatusId)
+            {
+                invoice.InvoiceStatusId = paidInvoiceStatus.InvoiceStatusId;
+                invoiceRepository.Update(invoice);
+
+                await _auditLogger.LogAsync(
+                    currentUserId,
+                    UpdateAuditActionTypeName,
+                    InvoiceEntityName,
+                    invoice.InvoiceId,
+                    $"Invoice {invoice.InvoiceId} marked as Paid after completed payments reached total amount.",
+                    transactionCancellationToken);
+            }
 
             await _auditLogger.LogAsync(
                 currentUserId,
@@ -273,18 +313,72 @@ public class PaymentBusinessService : IPaymentBusinessService
         var refundedStatusId = refundedStatusIds[0];
         if (payment.PaymentStatusId != refundedStatusId)
         {
-            payment.PaymentStatusId = refundedStatusId;
-            paymentRepository.Update(payment);
+            var invoiceRepository = _unitOfWork.Repository<Invoice>();
+            var invoice = await invoiceRepository.GetByIdAsync(payment.InvoiceId, cancellationToken);
+            if (invoice is null)
+            {
+                return Result<RecordedPaymentDto>.Failure(PaymentBusinessErrors.InvoiceNotFound);
+            }
 
-            await _auditLogger.LogAsync(
-                currentUserId,
-                UpdateAuditActionTypeName,
-                PaymentEntityName,
-                payment.PaymentId,
-                $"Payment {payment.PaymentId} refunded. Amount: {payment.Amount}.",
+            var completedStatusIds = await GetPaymentStatusIdsByNameAsync(CompletedStatusName, cancellationToken);
+            if (completedStatusIds.Length == 0)
+            {
+                return Result<RecordedPaymentDto>.Failure(PaymentBusinessErrors.CompletedStatusNotFound);
+            }
+
+            var paidInvoiceStatus = await ResolveInvoiceStatusByNameAsync(PaidInvoiceStatusName, cancellationToken);
+            var issuedInvoiceStatus = await ResolveInvoiceStatusByNameAsync(IssuedInvoiceStatusName, cancellationToken);
+            var cancelledInvoiceStatus = await ResolveInvoiceStatusByNameAsync(CancelledInvoiceStatusName, cancellationToken);
+
+            var completedPaidAmountAfterRefund = await GetPaidAmountByStatusIdsAsync(
+                payment.InvoiceId,
+                completedStatusIds,
+                excludePaymentId: payment.PaymentId,
                 cancellationToken);
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            var shouldReturnInvoiceToIssued =
+                paidInvoiceStatus is not null &&
+                invoice.InvoiceStatusId == paidInvoiceStatus.InvoiceStatusId &&
+                !IsInvoiceFullyPaid(completedPaidAmountAfterRefund, invoice.Total) &&
+                (cancelledInvoiceStatus is null || invoice.InvoiceStatusId != cancelledInvoiceStatus.InvoiceStatusId);
+
+            if (shouldReturnInvoiceToIssued && issuedInvoiceStatus is null)
+            {
+                return Result<RecordedPaymentDto>.Failure(PaymentBusinessErrors.IssuedInvoiceStatusNotFound);
+            }
+
+            payment.PaymentStatusId = refundedStatusId;
+
+            await _unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+            {
+                paymentRepository.Update(payment);
+
+                if (shouldReturnInvoiceToIssued && issuedInvoiceStatus is not null)
+                {
+                    invoice.InvoiceStatusId = issuedInvoiceStatus.InvoiceStatusId;
+                    invoiceRepository.Update(invoice);
+
+                    await _auditLogger.LogAsync(
+                        currentUserId,
+                        UpdateAuditActionTypeName,
+                        InvoiceEntityName,
+                        invoice.InvoiceId,
+                        $"Invoice {invoice.InvoiceId} returned to Issued after refund reduced completed payments below total amount.",
+                        transactionCancellationToken);
+                }
+
+                await _auditLogger.LogAsync(
+                    currentUserId,
+                    UpdateAuditActionTypeName,
+                    PaymentEntityName,
+                    payment.PaymentId,
+                    $"Payment {payment.PaymentId} refunded. Amount: {payment.Amount}.",
+                    transactionCancellationToken);
+
+                await _unitOfWork.SaveChangesAsync(transactionCancellationToken);
+
+                return true;
+            }, cancellationToken);
         }
 
         var paymentCard = (await _unitOfWork.Repository<PaymentCard>().FindAsync(
@@ -421,6 +515,15 @@ public class PaymentBusinessService : IPaymentBusinessService
             .ToArray();
     }
 
+    private async Task<InvoiceStatus?> ResolveInvoiceStatusByNameAsync(
+        string statusName,
+        CancellationToken cancellationToken)
+    {
+        var statuses = await _unitOfWork.Repository<InvoiceStatus>().GetAllAsync(cancellationToken);
+
+        return statuses.FirstOrDefault(x => IsStatusName(x.Name, statusName));
+    }
+
     private async Task<decimal> GetPaidAmountByStatusIdsAsync(
         int invoiceId,
         int[] statusIds,
@@ -478,6 +581,11 @@ public class PaymentBusinessService : IPaymentBusinessService
     {
         return !string.IsNullOrWhiteSpace(value) &&
                value.Equals(expected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsInvoiceFullyPaid(decimal completedPaidAmount, decimal invoiceTotal)
+    {
+        return completedPaidAmount >= invoiceTotal;
     }
 
     private static string? NormalizeOptionalText(string? value)
