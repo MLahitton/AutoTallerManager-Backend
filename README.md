@@ -1,6 +1,8 @@
 ## Examen
 Si el examen es como yo creo que es, estoy en un 80% seguro que el proyecto ya cuenta con l oque s solicita, no estoy 100% seguro pero segun las pruebas, esos procesos ya se realizan de manera correcta
 
+Para el caso del ajuste de stock se maneja desde lowstockParts  el payload sale de HttpGet(low-Stock) y HttpPost(Adjuststock)
+
 
 # AutoTallerManager Backend
 
