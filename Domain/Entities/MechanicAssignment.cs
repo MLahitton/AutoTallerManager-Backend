@@ -6,6 +6,8 @@ public class MechanicAssignment
     public int OrderServiceId { get; set; }
     public int MechanicPersonId { get; set; }
     public int SpecialtyId { get; set; }
+    public DateTime? ScheduleStart {get; set;}
+    public DateTime? ScgeduleEnd {get; set;}
 
     public OrderService OrderService { get; set; } = null!;
     public Person MechanicPerson { get; set; } = null!;
