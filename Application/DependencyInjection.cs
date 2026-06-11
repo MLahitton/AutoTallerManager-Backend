@@ -34,6 +34,7 @@ using Application.Features.PartBrands;
 using Application.Features.PartCategories;
 using Application.Features.PartPurchaseDetails;
 using Application.Features.PartPurchases;
+using Application.Features.parte_nueva;
 using Application.Features.InventoryBusiness;
 using Application.Features.Parts;
 using Application.Features.PaymentCards;
@@ -113,6 +114,7 @@ public static class DependencyInjection
         services.AddScoped<IPartService, PartService>();
         services.AddScoped<IPartPurchaseService, PartPurchaseService>();
         services.AddScoped<IPartPurchaseDetailService, PartPurchaseDetailService>();
+        services.AddScoped<Iparte_nuevaService, parte_nuevaService>();
         services.AddScoped<IInventoryBusinessService, InventoryBusinessService>();
         services.AddScoped<IVehicleBrandService, VehicleBrandService>();
         services.AddScoped<IVehicleModelService, VehicleModelService>();

@@ -56,6 +56,7 @@ public class AppDbContext : DbContext
     public DbSet<PaymentCard> PaymentCards => Set<PaymentCard>();
     public DbSet<AuditActionType> AuditActionTypes => Set<AuditActionType>();
     public DbSet<Audit> Audits => Set<Audit>();
+    public DbSet<parte_nueva> parte_nueva => Set<parte_nueva>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -639,3 +639,236 @@ El backend esta preparado para soportar los flujos principales de los cuatro rol
 - Client.
 
 El proyecto contiene controladores, servicios, persistencia, migraciones y seeders para operar los dominios centrales del taller. Algunos detalles funcionales especificos pueden depender del estado de la base de datos local y de que las migraciones hayan sido aplicadas correctamente.
+
+## Guia para crear una parte nueva del backend
+
+Esta guia explica el flujo base para crear una nueva funcionalidad siguiendo la arquitectura actual del proyecto. El ejemplo de referencia creado en el repositorio se llama `parte_nueva`.
+
+La idea es que `parte_nueva` funcione como mapa para crear una entidad, endpoint o proceso nuevo sin perder la separacion por capas.
+
+### Estructura creada como referencia
+
+El esqueleto `parte_nueva` quedo distribuido asi:
+
+- `Domain/Entities/parte_nueva.cs`: entidad de dominio.
+- `Infrastructure/Persistence/Configurations/parte_nuevaConfiguration.cs`: configuracion de Entity Framework Core.
+- `Infrastructure/Persistence/AppDbContext.cs`: registro del `DbSet`.
+- `Application/Features/parte_nueva`: capa de aplicacion de la funcionalidad.
+- `Application/Features/parte_nueva/Dtos`: objetos de respuesta.
+- `Application/Features/parte_nueva/Requests`: objetos de entrada.
+- `Application/Features/parte_nueva/Errors`: errores controlados.
+- `Application/Features/parte_nueva/Iparte_nuevaService.cs`: contrato del servicio.
+- `Application/Features/parte_nueva/parte_nuevaService.cs`: logica de aplicacion.
+- `Application/DependencyInjection.cs`: registro del servicio en inyeccion de dependencias.
+- `Api/Controllers/parte_nuevaController.cs`: endpoint REST.
+
+### Endpoint creado como referencia
+
+El controller de ejemplo expone:
+
+```txt
+GET    /api/parte_nueva
+GET    /api/parte_nueva/{id}
+POST   /api/parte_nueva
+PUT    /api/parte_nueva/{id}
+DELETE /api/parte_nueva/{id}
+```
+
+Por defecto, el endpoint esta protegido con:
+
+```csharp
+[Authorize(Roles = "Admin")]
+```
+
+Si la funcionalidad debe ser usada por otro rol, ajustar la autorizacion con cuidado.
+
+### Cuando crear una entidad nueva
+
+Si la funcionalidad necesita una tabla nueva, seguir este flujo:
+
+- Crear entidad en `Domain/Entities`.
+- Crear configuracion EF Core en `Infrastructure/Persistence/Configurations`.
+- Agregar `DbSet` en `Infrastructure/Persistence/AppDbContext.cs`.
+- Crear DTOs, requests, errores, interfaz y servicio en `Application/Features`.
+- Registrar el servicio en `Application/DependencyInjection.cs`.
+- Crear controller en `Api/Controllers`.
+- Crear migracion.
+- Aplicar migracion.
+- Probar build y arranque de API.
+
+Comando para crear migracion desde la raiz del backend:
+
+```powershell
+dotnet ef migrations add AddParteNueva --project Infrastructure\Infrastructure.csproj --startup-project Api\Api.csproj --context Infrastructure.Persistence.AppDbContext
+```
+
+Comando para aplicar migracion:
+
+```powershell
+dotnet ef database update --project Infrastructure\Infrastructure.csproj --startup-project Api\Api.csproj --context Infrastructure.Persistence.AppDbContext
+```
+
+Compilar:
+
+```powershell
+dotnet build .\AutoTallerManager.slnx
+```
+
+Ejecutar API:
+
+```powershell
+dotnet run --project Api\Api.csproj
+```
+
+### Cuando crear solo un endpoint nuevo
+
+Si la tabla ya existe y solo se necesita exponer una accion nueva, normalmente no se necesita migracion.
+
+Flujo recomendado:
+
+- Crear o actualizar el request en `Application/Features/<Modulo>/Requests`.
+- Crear o actualizar el DTO en `Application/Features/<Modulo>/Dtos`.
+- Agregar metodo en la interfaz del servicio.
+- Implementar metodo en el servicio.
+- Agregar endpoint en el controller.
+- Compilar.
+- Probar manualmente desde Swagger o frontend.
+
+No crear migracion si no cambian entidades, configuraciones EF, columnas, indices o relaciones.
+
+### Cuando crear un proceso de negocio nuevo
+
+Un proceso de negocio es algo como generar factura, registrar pago, cancelar compra, aprobar repuesto o cambiar estado de orden.
+
+Flujo recomendado:
+
+- Crear un servicio business en `Application/Features/<Proceso>`.
+- Crear request y response DTO especificos.
+- Validar reglas de negocio antes de modificar datos.
+- Usar `IUnitOfWork.ExecuteInTransactionAsync` si se modifican varias tablas.
+- Registrar auditoria con `IAuditLogger` si el proceso cambia datos importantes.
+- Agregar controller o endpoint especifico en `Api/Controllers`.
+- Mantener errores controlados usando `Result` y `Error`.
+
+Ejemplo de carpetas sugeridas:
+
+```txt
+Application/Features/parte_nuevaBusiness
+Application/Features/parte_nuevaBusiness/Dtos
+Application/Features/parte_nuevaBusiness/Requests
+Application/Features/parte_nuevaBusiness/Errors
+Api/Controllers/parte_nuevaBusinessController.cs
+```
+
+### Que cambiar al copiar `parte_nueva`
+
+Al usar `parte_nueva` como plantilla, reemplazar el nombre en todos estos lugares:
+
+- Nombre de entidad.
+- Nombre de carpeta en `Application/Features`.
+- Nombre de DTO.
+- Nombre de requests.
+- Nombre de errores.
+- Nombre de interfaz.
+- Nombre de servicio.
+- Nombre de controller.
+- Ruta del endpoint.
+- Nombre de tabla en la configuracion EF.
+- Nombre del `DbSet`.
+- Registro en `DependencyInjection.cs`.
+
+Ejemplo:
+
+```txt
+parte_nueva -> CustomerCategory
+api/parte_nueva -> api/customer-categories
+parte_nuevaService -> CustomerCategoryService
+Iparte_nuevaService -> ICustomerCategoryService
+```
+
+### Checklist antes de migrar
+
+Antes de crear una migracion, revisar:
+
+- La entidad tiene solo las propiedades necesarias.
+- La configuracion EF tiene longitudes, requeridos, indices y relaciones correctas.
+- No se duplican tablas ya existentes.
+- El nombre de tabla es consistente.
+- Las relaciones tienen `OnDelete` definido si aplica.
+- El `DbSet` esta en `AppDbContext`.
+- El proyecto compila.
+
+### Checklist despues de migrar
+
+Despues de crear migracion:
+
+- Revisar el archivo generado en `Infrastructure/Persistence/Migrations`.
+- Confirmar que la migracion no borra tablas o columnas inesperadas.
+- Aplicar la migracion solo sobre la base de datos correcta.
+- Ejecutar build.
+- Arrancar API.
+- Probar endpoint en Swagger.
+
+### Comandos utiles para el flujo nuevo
+
+Listar migraciones:
+
+```powershell
+dotnet ef migrations list --project Infrastructure\Infrastructure.csproj --startup-project Api\Api.csproj --context Infrastructure.Persistence.AppDbContext
+```
+
+Crear migracion:
+
+```powershell
+dotnet ef migrations add NombreMigracion --project Infrastructure\Infrastructure.csproj --startup-project Api\Api.csproj --context Infrastructure.Persistence.AppDbContext
+```
+
+Aplicar migracion:
+
+```powershell
+dotnet ef database update --project Infrastructure\Infrastructure.csproj --startup-project Api\Api.csproj --context Infrastructure.Persistence.AppDbContext
+```
+
+Compilar:
+
+```powershell
+dotnet build .\AutoTallerManager.slnx
+```
+
+Ejecutar:
+
+```powershell
+dotnet run --project Api\Api.csproj
+```
+
+### Reglas importantes
+
+- No crear migracion si solo se modifica logica, servicios, controllers, DTOs o validaciones.
+- Crear migracion si se agrega entidad, tabla, columna, relacion, indice o cambio de configuracion EF.
+- No poner reglas de negocio complejas en controllers.
+- No exponer entidades directamente si el modulo requiere DTOs.
+- No guardar secretos en `appsettings`.
+- No crear datos operativos falsos en seeders.
+- Usar transacciones cuando un proceso modifique varias tablas.
+- Usar auditoria para cambios relevantes del negocio.
+- Mantener nombres claros y consistentes.
+
+### Resumen rapido
+
+Para una entidad nueva:
+
+```txt
+Domain -> Infrastructure configuration -> AppDbContext -> Application Feature -> DI -> Controller -> Migration -> Database update
+```
+
+Para un endpoint nuevo sobre algo existente:
+
+```txt
+Request/DTO -> Service -> Controller -> Build -> Swagger/manual test
+```
+
+Para un proceso de negocio nuevo:
+
+```txt
+Request/DTO -> Business service -> Validaciones -> Transaccion -> Auditoria -> Controller -> Build -> Manual test
+```
